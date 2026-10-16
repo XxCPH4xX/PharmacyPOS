@@ -917,7 +917,7 @@ export function Inventory({
                     setDetail(null);
                   }}
                 >
-                  Manage Units
+                  Configure units
                 </Button>
               )}
               <Button variant="secondary" onClick={() => setDetail(null)}>
