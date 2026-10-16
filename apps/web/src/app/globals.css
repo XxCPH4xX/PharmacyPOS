@@ -5641,11 +5641,33 @@ strong {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
+
 .receipt-dialog .modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--line);
-  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
+
+.receipt-dialog .modal-actions > .button {
+  flex: 0 1 auto;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .receipt-dialog .modal-actions > .button {
+    flex: 1 1 100%;
+  }
+}
+
 @media (max-height: 800px) {
   .pos-workspace .main-content {
     padding-top: 12px;
@@ -5816,3 +5838,36 @@ strong {
 .invoice-notes {
   overflow-wrap: anywhere;
 }
+
+/* Sale completion dialog footer */
+.receipt-dialog .receipt-footer-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  justify-content: stretch;
+}
+
+.receipt-dialog .receipt-footer-actions > .button {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  white-space: normal;
+  text-align: center;
+  justify-content: center;
+}
+
+.receipt-dialog .receipt-footer-actions > .button:first-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 380px) {
+  .receipt-dialog .receipt-footer-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

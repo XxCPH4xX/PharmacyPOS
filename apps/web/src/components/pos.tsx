@@ -116,7 +116,7 @@ export function ReceiptDialog({
               <InvoiceCopy receipt={receipt} />
             )}
           </div>
-          <div className="modal-actions">
+          <div className="modal-actions receipt-footer-actions">
             <Button variant="secondary" onClick={onClose}>
               Done
             </Button>
