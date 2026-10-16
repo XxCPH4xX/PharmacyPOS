@@ -2948,7 +2948,13 @@ strong {
   color: #c1bc86;
   border-color: #5a5d3a;
 }
-:root[data-theme="dark"] .care-icon,
+
+:root[data-theme="dark"] .care-icon {
+  background: #203b3a;
+  color: #9ac8bc;
+  border-color: #345150;
+}
+
 @media (min-width: 1550px) {
   :root {
     --sidebar: 260px;
