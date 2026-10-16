@@ -917,7 +917,7 @@ export function Inventory({
                     setDetail(null);
                   }}
                 >
-                  Configure boxes / strips
+                  Manage Units
                 </Button>
               )}
               <Button variant="secondary" onClick={() => setDetail(null)}>
