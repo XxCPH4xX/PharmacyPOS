@@ -1,10 +1,13 @@
 "use client";
+
 import { AppSelect } from "./select";
+import { MedicineImport } from "./medicine-import";
 
 import {
   Boxes,
   Check,
   ChevronDown,
+  FileUp,
   Package,
   Plus,
   ScanBarcode,
@@ -308,7 +311,7 @@ export function ReceiveStock({
       }
       setError(
         (error as Error).message +
-          (!known && pending ? " Retry to confirm this same receipt." : ""),
+        (!known && pending ? " Retry to confirm this same receipt." : ""),
       );
     } finally {
       setBusy(false);
@@ -509,6 +512,7 @@ export function Inventory({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [tab, setTab] = useState("medicines");
+  const [importOpen, setImportOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [removal, setRemoval] = useState<Product | null>(null);
   const [detail, setDetail] = useState<Product | null>(null);
@@ -605,12 +609,24 @@ export function Inventory({
                 : "The right stock, in the right place, at the right time."}
             </p>
           </div>
+
+          {canManage && catalog && (
+            <Button
+              variant="secondary"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileUp size={16} />
+              Import from CSV
+            </Button>
+          )}
+
           {canManage && (
             <Button onClick={catalog ? onAdd : () => onReceive()}>
               <Plus size={16} />
               {catalog ? "Add medicine" : "Receive stock"}
             </Button>
           )}
+
         </div>
         {!catalog && (
           <div className="tab-line">
@@ -669,14 +685,14 @@ export function Inventory({
                 },
                 ...(batchView
                   ? [
-                      { value: "expiry", label: "Expiring in 90 days" },
-                      { value: "expired", label: "Expired" },
-                    ]
+                    { value: "expiry", label: "Expiring in 90 days" },
+                    { value: "expired", label: "Expired" },
+                  ]
                   : [
-                      { value: "stock", label: "In stock" },
-                      { value: "low", label: "Low stock" },
-                      { value: "rx", label: "Prescription required" },
-                    ]),
+                    { value: "stock", label: "In stock" },
+                    { value: "low", label: "Low stock" },
+                    { value: "rx", label: "Prescription required" },
+                  ]),
               ]}
             />
           </div>
@@ -709,135 +725,135 @@ export function Inventory({
             <tbody>
               {batchView
                 ? filteredBatches
-                    .slice(page * size, (page + 1) * size)
-                    .map((batch) => (
-                      <tr key={batch.id}>
-                        <td>
-                          <div className="medicine-cell">
-                            <span className="medicine-mini">
-                              <Package size={18} />
-                            </span>
-                            <div>
-                              <strong>{batch.name}</strong>
-                              <small>{batch.strength}</small>
-                            </div>
+                  .slice(page * size, (page + 1) * size)
+                  .map((batch) => (
+                    <tr key={batch.id}>
+                      <td>
+                        <div className="medicine-cell">
+                          <span className="medicine-mini">
+                            <Package size={18} />
+                          </span>
+                          <div>
+                            <strong>{batch.name}</strong>
+                            <small>{batch.strength}</small>
                           </div>
-                        </td>
-                        <td className="mono">{batch.number}</td>
-                        <td>{date(batch.expiry)}</td>
-                        <td>
-                          <span className="rack-label">{batch.location}</span>
-                        </td>
-                        <td className="amount">
-                          {number(batch.quantity)}
-                          <small className="physical-stock">
-                            {batch.loose_quantity} loose
-                            {batch.inner_quantity
-                              ? ` · ${batch.inner_quantity} ${batch.inner_name}`
-                              : ""}
-                            {batch.outer_quantity
-                              ? ` · ${batch.outer_quantity} ${batch.outer_name}`
-                              : ""}
-                          </small>
-                        </td>
-                        <td>
-                          <Badge
-                            tone={
-                              daysUntil(batch.expiry) <= 0
-                                ? "red"
-                                : daysUntil(batch.expiry) <= 90
-                                  ? "amber"
-                                  : "teal"
-                            }
-                          >
-                            {daysUntil(batch.expiry) <= 0
-                              ? "Expired"
-                              : batch.status !== "available"
-                                ? batch.status
-                                : daysUntil(batch.expiry) <= 90
-                                  ? `${daysUntil(batch.expiry)} days left`
-                                  : "Available"}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))
+                        </div>
+                      </td>
+                      <td className="mono">{batch.number}</td>
+                      <td>{date(batch.expiry)}</td>
+                      <td>
+                        <span className="rack-label">{batch.location}</span>
+                      </td>
+                      <td className="amount">
+                        {number(batch.quantity)}
+                        <small className="physical-stock">
+                          {batch.loose_quantity} loose
+                          {batch.inner_quantity
+                            ? ` · ${batch.inner_quantity} ${batch.inner_name}`
+                            : ""}
+                          {batch.outer_quantity
+                            ? ` · ${batch.outer_quantity} ${batch.outer_name}`
+                            : ""}
+                        </small>
+                      </td>
+                      <td>
+                        <Badge
+                          tone={
+                            daysUntil(batch.expiry) <= 0
+                              ? "red"
+                              : daysUntil(batch.expiry) <= 90
+                                ? "amber"
+                                : "teal"
+                          }
+                        >
+                          {daysUntil(batch.expiry) <= 0
+                            ? "Expired"
+                            : batch.status !== "available"
+                              ? batch.status
+                              : daysUntil(batch.expiry) <= 90
+                                ? `${daysUntil(batch.expiry)} days left`
+                                : "Available"}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
                 : filtered
-                    .slice(page * size, (page + 1) * size)
-                    .map((product) => (
-                      <tr key={product.id}>
-                        <td>
-                          <button
-                            className="medicine-cell cell-button"
-                            onClick={() => setDetail(product)}
-                          >
-                            <span className="medicine-mini">
-                              <Package size={18} />
-                            </span>
-                            <div>
-                              <strong>
-                                {product.name}{" "}
-                                <span className="strength">
-                                  {product.strength}
-                                </span>
-                              </strong>
-                              <small>{product.generic}</small>
-                            </div>
-                          </button>
-                        </td>
-                        <td>
-                          {catalog ? (
-                            <div className="stacked">
-                              <span className="mono">{product.sku}</span>
-                              <small>{product.barcode}</small>
-                            </div>
-                          ) : (
-                            product.manufacturer
-                          )}
-                        </td>
-                        <td>{product.form}</td>
-                        <td className="amount">{money(product.price_minor)}</td>
-                        <td>
-                          <strong>{number(product.stock)}</strong>
-                          <span className="muted"> units</span>
-                        </td>
-                        <td>
-                          <Badge
-                            tone={
-                              product.stock === 0
-                                ? "red"
-                                : product.stock <= product.reorder_level
-                                  ? "amber"
-                                  : "teal"
-                            }
-                          >
-                            {product.stock === 0
-                              ? "Out of stock"
+                  .slice(page * size, (page + 1) * size)
+                  .map((product) => (
+                    <tr key={product.id}>
+                      <td>
+                        <button
+                          className="medicine-cell cell-button"
+                          onClick={() => setDetail(product)}
+                        >
+                          <span className="medicine-mini">
+                            <Package size={18} />
+                          </span>
+                          <div>
+                            <strong>
+                              {product.name}{" "}
+                              <span className="strength">
+                                {product.strength}
+                              </span>
+                            </strong>
+                            <small>{product.generic}</small>
+                          </div>
+                        </button>
+                      </td>
+                      <td>
+                        {catalog ? (
+                          <div className="stacked">
+                            <span className="mono">{product.sku}</span>
+                            <small>{product.barcode}</small>
+                          </div>
+                        ) : (
+                          product.manufacturer
+                        )}
+                      </td>
+                      <td>{product.form}</td>
+                      <td className="amount">{money(product.price_minor)}</td>
+                      <td>
+                        <strong>{number(product.stock)}</strong>
+                        <span className="muted"> units</span>
+                      </td>
+                      <td>
+                        <Badge
+                          tone={
+                            product.stock === 0
+                              ? "red"
                               : product.stock <= product.reorder_level
-                                ? "Low stock"
-                                : "In stock"}
-                          </Badge>
-                        </td>
-                        <td>
+                                ? "amber"
+                                : "teal"
+                          }
+                        >
+                          {product.stock === 0
+                            ? "Out of stock"
+                            : product.stock <= product.reorder_level
+                              ? "Low stock"
+                              : "In stock"}
+                        </Badge>
+                      </td>
+                      <td>
+                        <button
+                          className="icon-button"
+                          aria-label={`View ${product.name}`}
+                          onClick={() => setDetail(product)}
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                        {canRemove && (
                           <button
-                            className="icon-button"
-                            aria-label={`View ${product.name}`}
-                            onClick={() => setDetail(product)}
+                            className="icon-button remove-medicine-button"
+                            aria-label={`Remove ${product.name} from catalog`}
+                            title="Remove medicine from workspace"
+                            onClick={() => setRemoval(product)}
                           >
-                            <ChevronDown size={16} />
+                            <Trash2 size={16} />
                           </button>
-                          {canRemove && (
-                            <button
-                              className="icon-button remove-medicine-button"
-                              aria-label={`Remove ${product.name} from catalog`}
-                              title="Remove medicine from workspace"
-                              onClick={() => setRemoval(product)}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                        )}
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>
@@ -938,6 +954,13 @@ export function Inventory({
           </>
         )}
       </Modal>
+      <MedicineImport
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        branch={branch}
+        onImported={onChanged}
+      />
+
       <RemoveMedicine
         product={removal}
         branch={branch}

@@ -1,8 +1,13 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView
 
+
 from catalog.unit_views import ProductUnitsView
 from catalog.views import CatalogView
+from catalog.import_views import (
+    MedicineImportPreviewView,
+    MedicineImportCommitView,
+)
 from core.auth_views import DemoView, LoginView, LogoutView, RegisterView, SessionView
 from core.customers import CustomersView
 from core.maintenance import RemoveMedicineView, ResetWorkspaceView
@@ -41,6 +46,14 @@ urlpatterns = [
     path("api/v1/settings/workspace/", WorkspaceSettingsView.as_view()),
     path("api/v1/customers/", CustomersView.as_view()),
     path("api/v1/catalog/", CatalogView.as_view()),
+    path(
+        "api/v1/catalog/import/preview/",
+        MedicineImportPreviewView.as_view(),
+    ),
+    path(
+        "api/v1/catalog/import/commit/",
+        MedicineImportCommitView.as_view(),
+    ),
     path("api/v1/catalog/<uuid:product_id>/remove/", RemoveMedicineView.as_view()),
     path("api/v1/settings/reset/", ResetWorkspaceView.as_view()),
     path("api/v1/catalog/<uuid:product_id>/units/", ProductUnitsView.as_view()),
