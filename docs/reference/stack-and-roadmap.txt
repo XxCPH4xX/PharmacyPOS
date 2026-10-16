@@ -1,0 +1,145 @@
+Recommended technology stack
+Layer	Technology
+Frontend	Next.js, TypeScript, Tailwind CSS
+UI components	shadcn/ui, Radix UI
+Backend	Django, Django REST Framework
+Database	PostgreSQL
+Cache and queues	Redis, Celery
+Authentication	Secure sessions, MFA, RBAC
+Live updates	WebSockets where necessary
+Reporting	Pandas, SQL, PDF/Excel exports
+Deployment	Docker, Linux, Nginx
+Monitoring	Sentry, Prometheus, Grafana
+Testing	Pytest, Playwright
+I recommend a modular monolith initially, rather than unnecessary microservices. It is easier to test, deploy, maintain, and secure while still supporting significant growth.
+2. Essential pharmacy modules
+
+Medicine master database
+Generic and brand names, strength, dosage form, manufacturer, SKU, barcode, pack sizes, conversion units, prescription requirements, purchase and selling prices, tax classification, and alternatives.
+
+
+
+
+Advanced inventory management
+Batch and lot tracking, expiry dates, FEFO allocation, rack/bin location, stock transfers, adjustments, physical counts, damaged stock, quarantine, recalls, and negative-stock prevention.
+
+
+
+
+Smart pharmacy POS
+Barcode scanning, fast medicine search, batch selection, split payments, discounts, tax, prescription validation, receipt printing, refunds, held bills, offline handling, and cashier shifts.
+
+
+
+
+Purchase and supplier management
+Supplier profiles, purchase orders, goods received notes, invoice reconciliation, partial deliveries, supplier returns, credit balances, purchase costs, and reorder recommendations.
+
+
+
+
+Finance and accounting
+Sales revenue, COGS, gross/net profit, operating expenses, supplier payables, customer receivables, cash reconciliation, tax reports, and optional general ledger.
+
+
+
+
+Analytics and intelligent alerts
+Sales trends, expiry-loss forecasting, slow-moving medicines, low-stock alerts, dead stock, ABC/XYZ analysis, reorder calculations, and branch performance.
+
+
+
+
+Staff, customer and prescription management
+Role-based staff accounts, shifts, customer purchase histories, prescriptions, pharmacist approval workflows, loyalty programs, and privacy-controlled patient records.
+
+
+
+
+Multi-branch and enterprise operations
+Central product catalog, branch-specific inventory, warehouse transfers, branch-level pricing, centralized purchasing, consolidated reporting, and tenant isolation.
+
+
+
+Additional production features should include automated backups, import/export, notification templates, hardware integration, audit trails, data retention policies, configurable tax and currency, and subscription/license management if you plan to sell the software.
+3. UI/UX direction
+I would not copy the advertisement's design. Instead, use a modern, professional pharmacy interface with a clean layout, consistent navigation, and operational dashboards.
+
+
+
+
+
+
+
+
+
+Management dashboard
+Sales, stock, alerts, branch summaries
+
+
+
+
+
+
+
+
+
+Pharmacy POS
+Keyboard-first billing and checkout
+
+
+
+
+
+
+
+
+
+Inventory workspace
+Batch, expiry, location and stock status
+
+
+
+
+
+
+
+
+
+Business intelligence
+Profitability, purchasing and forecasting
+
+These are visual references, not a final design. The actual product should have original layouts, components, interaction patterns, and branding.
+For a pharmacy, speed and clarity are especially important. A cashier should be able to complete routine transactions with minimal clicks, while pharmacists should immediately see prescription restrictions, batch warnings, and expiry information.
+4. Security requirements
+No software can be guaranteed impossible to hack. A professional product should instead be designed to reduce attack risk, limit damage, detect incidents, and recover safely.
+I would require:
+- Server-side permission checks on every sensitive operation, MFA for privileged users, secure session management, and account lockout/rate limiting.
+- Strict tenant and branch isolation, including authorization tests that attempt cross-tenant access.
+- TLS, encrypted backups, secrets management, secure cookies, CSRF protection, and protection against XSS, SQL injection, and insecure file uploads.
+- Immutable-style append-only audit records, with restricted access and tamper detection.
+- Database transactions and concurrency controls to prevent double sales, duplicate payments, and incorrect stock deductions.
+- Dependency scanning, static analysis, penetration testing, backup restoration drills, and incident-response procedures.
+- Controlled medicine workflows, prescription verification, and approval requirements configured to applicable local law.
+For Bangladesh, the implementation should also be reviewed against applicable DGDA requirements, medicine-sale restrictions, tax/VAT rules, and privacy obligations before commercial deployment.
+5. A critical technical decision
+Inventory must not be stored as a single editable quantity field without a transaction history.
+Use a stock movement ledger recording purchases, sales, returns, transfers, adjustments, damage, and expiries. Maintain batch-level quantities and derive or reconcile available stock from those movements.
+For example, if two cashiers sell the last medicine simultaneously, the database must prevent both transactions from succeeding against the same available unit. This requires transactional locking or equivalent concurrency-safe stock reservation logic.
+This is the kind of detail that separates a polished demonstration from a reliable commercial system.
+6. Development roadmap
+Phase	Deliverables
+1. Foundation	Requirements, database design, design system, authentication, roles
+2. Core pharmacy	Medicine catalog, suppliers, batch inventory, stock ledger
+3. POS	Billing, barcode, receipts, payments, returns
+4. Procurement	Purchase orders, goods receiving, reordering
+5. Finance	Expenses, profit calculations, cash reconciliation
+6. Operations	Prescriptions, expiry, rack management, alerts
+7. Enterprise	Multi-branch, analytics, centralized controls
+8. Hardening	Security tests, load tests, backups, disaster recovery
+9. Launch	Pilot pharmacy, staff training, monitored rollout
+Every phase should have automated tests and explicit acceptance criteria. Do not postpone security and data-integrity testing until the end.
+7. Making it a professional developer project
+Your repository should contain purposeful code, readable module boundaries, meaningful commits, normal technical documentation, tests, and deployment instructions.
+Avoid artificial milestone diaries, generic filler comments, unnecessary abstractions, or copied UI. Code comments should explain business rules and non-obvious technical decisions, not narrate the development process.
+You can use coding assistants during development, but no prompt can establish that software was entirely hand-written. What matters is that you understand, review, test, and take responsibility for the implementation.

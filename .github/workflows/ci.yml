@@ -1,0 +1,65 @@
+name: Quality gates
+on: [push, pull_request]
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pharmacore
+          POSTGRES_USER: pharmacore
+          POSTGRES_PASSWORD: ci-only-ephemeral-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pharmacore"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_DEBUG: "1"
+      DJANGO_SECRET_KEY: ci-only-not-for-deployment-ephemeral-test-secret
+      POSTGRES_DB: pharmacore
+      POSTGRES_USER: pharmacore
+      POSTGRES_PASSWORD: ci-only-ephemeral-password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: pnpm/action-setup@v4
+        with: { version: "11.25.0" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "24", cache: pnpm }
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -r services/api/requirements.lock
+      - run: pnpm install --frozen-lockfile
+      - run: .venv/bin/ruff check services/api scripts
+      - run: .venv/bin/ruff format --check services/api scripts
+      - run: python scripts/api.py makemigrations --check --dry-run
+      - run: python scripts/api.py test
+      - run: python scripts/api.py spectacular --file ../../docs/api/openapi.yaml --validate --fail-on-warn
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: python scripts/api.py migrate --noinput
+      - run: python scripts/api.py seed_demo
+      - name: Start local services
+        run: |
+          python scripts/api.py runserver 127.0.0.1:8000 --noreload > /tmp/pharmacore-api.log 2>&1 &
+          pnpm --filter @pharmacore/web start > /tmp/pharmacore-web.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://localhost:3000/api/v1/health/; then break; fi
+            sleep 2
+          done
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: |
+            test-results/
+            playwright-report/

@@ -1,0 +1,852 @@
+Pharmacy ERP & POS — Production Development Blueprint
+Commercial SaaS specification
+Product: Multi-Tenant Pharmacy Management, ERP & Point-of-Sale Platform
+Market: Bangladesh first, internationally extensible
+Platforms: Cloud web application + desktop POS with controlled offline operation
+Architecture: Secure modular monolith with independently deployable worker services
+Primary users: Pharmacy owners, pharmacists, cashiers, inventory managers, accountants, wholesalers, and platform administrators
+This blueprint is designed for building a genuine commercial software product—not a dashboard demonstration or basic CRUD application.
+The finished platform should support medicine purchasing, batch-level inventory, prescription workflows, retail and wholesale sales, financial accounting, branch operations, regulatory controls, and centralized SaaS administration.
+It should also support real pharmacy hardware, including barcode scanners, receipt printers, cash drawers, and label printers.
+1. Product principles
+The entire development process should follow six requirements:
+1. Correctness before features: Sales, inventory, payments, and accounting must remain consistent under concurrent usage, network failures, and application crashes.
+2. Security by design: Authorization, tenant isolation, encryption, auditability, and secure deployment are fundamental architectural requirements.
+3. Pharmacy-specific workflows: Medicine batches, expiry, recalls, prescriptions, and regulated product restrictions cannot be treated like ordinary retail inventory.
+4. Practical offline operation: A disconnected POS must not create unresolvable duplicate sales, oversell shared inventory, or bypass pharmacist approval.
+5. Professional UX: Interfaces should prioritize rapid transactions, clear warnings, efficient navigation, and minimal repetitive data entry.
+6. Commercial maintainability: The codebase must be understandable, testable, observable, documented, and deployable without depending on the original developer.
+Important: No architecture can guarantee a system cannot be hacked. The release criteria must instead require independently verified security controls, tested recovery procedures, and documented residual risks. Bangladesh-specific legal, tax, prescription, and licensing requirements must be validated with qualified local professionals and relevant authorities before production launch.
+2. Recommended technology architecture
+Component	Recommended implementation
+SaaS frontend	Next.js + TypeScript
+UI	Tailwind CSS + shadcn/ui + Radix
+Desktop POS	Tauri 2 + React/TypeScript
+Backend	Django + Django REST Framework
+Primary database	PostgreSQL
+Desktop local storage	Encrypted SQLite
+Cache / queue broker	Redis
+Background processing	Celery
+Real-time events	Django Channels / WebSockets
+Object storage	S3-compatible private storage
+Authentication	Secure session-based web auth; scoped device authentication for POS
+Authorization	RBAC + contextual policy checks
+Monitoring	OpenTelemetry, Prometheus, Grafana, Sentry
+Deployment	Docker, managed PostgreSQL, Linux infrastructure
+CI/CD	GitHub Actions
+Testing	Pytest, Vitest, Playwright, desktop integration tests
+The backend should be the authoritative source of business state. The desktop POS is a specialized client, not a second independent ERP backend.
+3. Core system modules
+Domain	Essential capabilities
+SaaS administration	Tenant onboarding, subscriptions, licensing, plans, billing, quotas, support controls
+Organization	Branches, warehouses, registers, employees, departments
+Medicine catalog	Generic/brand, strength, dosage, formulation, manufacturer, SKU, barcode, units
+Inventory	Batch ledger, FEFO, expiry, racks, quarantine, adjustments, transfers
+Procurement	Suppliers, purchase orders, GRN, invoice matching, purchase returns
+POS	Sales, discounts, VAT, payments, receipts, refunds, suspended carts
+Prescriptions	Patient records, prescription documents, verification, pharmacist approvals
+Customers	Profiles, purchase history, credit limits, loyalty, privacy settings
+Wholesale	Customer accounts, quotations, bulk pricing, invoices, credit management
+Finance	COGS, receivables, payables, expenses, cash sessions, journals
+Analytics	Sales, margins, inventory turnover, stockout trends, expiry risk
+Automation	Reorder recommendations, alerts, scheduled reporting
+Security	MFA, permissions, audit events, anomaly monitoring
+Integrations	SMS, email, payment providers, barcode and printing devices
+Configuration	Currency, language, taxes, rounding, invoice formats, regional rules
+All financial values should use fixed-precision decimal types or integer minor units, never binary floating-point arithmetic. Every critical operation must support idempotency, transaction boundaries, and traceable business records.
+4. Complete development master prompt
+The following is the main instruction document to give to your coding agent. It defines the architecture, development standards, business requirements, acceptance criteria, and implementation process.
+PHARMACY ERP & POS — MASTER ENGINEERING SPECIFICATION
+ROLE AND OBJECTIVE
+Act as a principal software architect, senior full-stack engineer, database architect, security engineer, product designer, and quality assurance lead.
+Design and implement a commercially viable, production-grade, multi-tenant Pharmacy ERP and POS platform for the Bangladesh market.
+This is a real business application intended for pharmacy operators, pharmacists, cashiers, managers, distributors, and multi-branch organizations.
+Do not build a prototype disguised as production software. Do not prioritize feature count over correctness, security, usability, and operational reliability.
+Work in incremental, independently testable releases. Inspect the existing repository before making changes. Preserve functioning features unless a change is justified and regression-tested.
+Product characteristics
+- Commercial multi-tenant SaaS.
+- Cloud-hosted web management application.
+- Tauri-based desktop POS for Windows and Linux, with macOS supported where practical.
+- Secure and explicitly restricted offline POS capabilities.
+- Bangladesh-first localization: BDT, Bangla/English, Asia/Dhaka timezone, locally appropriate date, tax, invoice, and payment configurations.
+- Extensible regional architecture for future international deployment.
+- Responsive management portal for desktops and tablets.
+- Multi-organization, multi-branch, multi-warehouse support.
+- Strict separation between platform administration, tenant administration, and branch-level operational access.
+Do not claim legal compliance or production readiness without documented verification.
+A. ENGINEERING PRINCIPLES
+1. Use maintainable, typed, modular code.
+2. Prefer proven libraries over unnecessary custom implementations.
+3. Use a modular monolith with clear bounded contexts.
+4. Keep business rules in domain/application services, not UI components or database signals.
+5. Use PostgreSQL as the authoritative transactional database.
+6. Do not silently swallow exceptions.
+7. Never trust frontend authorization, calculations, prices, quantities, or approval flags.
+8. Never hardcode production credentials, encryption keys, API secrets, or customer data.
+9. Every critical mutation must be authorized, validated, transactional, idempotent where appropriate, and auditable.
+10. Avoid speculative abstractions, duplicate services, and excessive dependencies.
+11. Do not introduce AI-generated-looking filler documentation, self-congratulatory comments, milestone diary entries, or development-agent references into the application.
+12. Comments must explain non-obvious intent, business constraints, and technical tradeoffs.
+13. Maintain professional commit messages and meaningful changelogs.
+14. Never claim a feature works without testing its actual behavior.
+15. Never fabricate security test results, performance benchmarks, certifications, or compliance evidence.
+B. APPLICATIONS AND REPOSITORY STRUCTURE
+Use a TypeScript/Python monorepo with the following logical structure:
+pharmacy-platform/
+├── apps/
+│   ├── web/
+│   └── desktop-pos/
+├── services/
+│   └── api/
+├── packages/
+│   ├── ui/
+│   ├── contracts/
+│   ├── localization/
+│   └── configuration/
+├── infrastructure/
+│   ├── docker/
+│   ├── monitoring/
+│   ├── deployment/
+│   └── backup/
+├── docs/
+│   ├── architecture/
+│   ├── api/
+│   ├── operations/
+│   ├── security/
+│   ├── decisions/
+│   └── user-guides/
+├── tests/
+│   ├── integration/
+│   ├── e2e/
+│   ├── security/
+│   └── performance/
+├── .github/
+│   └── workflows/
+├── README.md
+├── CONTRIBUTING.md
+├── SECURITY.md
+└── LICENSE
+Within the Django backend, establish distinct bounded contexts:
+- identity
+- tenancy
+- organizations
+- branches
+- staff
+- catalog
+- inventory
+- procurement
+- sales
+- prescriptions
+- customers
+- suppliers
+- finance
+- wholesale
+- reporting
+- notifications
+- integrations
+- subscriptions
+- audit
+- configuration
+Prevent circular dependencies and uncontrolled cross-module database writes.
+C. TENANCY AND IDENTITY
+Implement:
+- Platform super-administration.
+- Tenant onboarding and lifecycle management.
+- Organization and branch provisioning.
+- User invitations, verification, deactivation, and session revocation.
+- Role-based access control with fine-grained permissions.
+- Branch-specific and organization-wide role assignments.
+- Pharmacist approval roles and configurable authorization thresholds.
+- MFA for privileged users.
+- Session timeout and reauthentication for sensitive actions.
+- Device registration and revocation.
+- Tenant suspension and safe data export.
+- Subscription plans, quotas, invoices, trials, and entitlements.
+Enforce tenant isolation in every query, API endpoint, background task, cache key, file access, report, and WebSocket subscription.
+Do not permit ordinary platform support staff to browse tenant patient or financial data. Provide narrowly scoped, time-limited, approved support access with comprehensive audit records.
+D. MEDICINE MASTER DATA
+Support:
+- Brand and generic names.
+- Active ingredients and combinations.
+- Strength, dosage form, administration route.
+- Manufacturer and supplier information.
+- Pack, strip, box, and individual-unit conversions.
+- Multiple barcodes and alternate SKUs.
+- Category, therapeutic class, and search aliases.
+- Prescription requirements and regulatory classifications.
+- Medicine status: active, discontinued, blocked, recalled.
+- Country-specific product identifiers where legally supported.
+- Purchase price, selling price, MRP, and configurable tax classification.
+- Product images, descriptions, and storage instructions.
+- Approved alternatives and equivalent products, without automatically authorizing clinical substitution.
+Maintain master catalog records separately from tenant-specific commercial configurations.
+Prevent ambiguous unit conversions and unauthorized sale of restricted products.
+E. INVENTORY MANAGEMENT
+Implement a transactional inventory ledger.
+Required capabilities:
+- Batch and lot numbers.
+- Expiry and manufacturing dates.
+- Warehouse, branch, rack, shelf, and bin locations.
+- Stock receiving, issuing, adjustment, reservation, transfer, and return.
+- Available, reserved, quarantined, damaged, recalled, and expired quantities.
+- FEFO allocation with authorized exceptions.
+- Configurable expiry-warning periods.
+- Cycle counting and full physical inventory.
+- Stock reconciliation and discrepancy investigation.
+- Batch-specific purchase costs.
+- Unit conversion and break-pack transactions.
+- Multi-location transfer with dispatch, in-transit, receipt, and discrepancy states.
+- Recall blocking and quarantine.
+- Stockout detection and reorder thresholds.
+- Inventory valuation and historical as-of reporting.
+Never directly edit a stock quantity without recording a corresponding business transaction.
+Use database constraints, transactional locking, and concurrency tests to prevent overselling and negative stock.
+F. PROCUREMENT
+Implement:
+- Supplier registration and verification.
+- Supplier product catalogs and price lists.
+- Purchase requisitions and approvals.
+- Purchase orders and revisions.
+- Partial deliveries.
+- Goods received notes.
+- Batch capture at receiving.
+- Supplier invoice matching.
+- Landed costs and purchase discounts.
+- Supplier returns and credit notes.
+- Supplier payables and payment tracking.
+- Reorder suggestions based on demand, lead time, safety stock, and existing orders.
+- Purchase history and supplier performance metrics.
+Require explicit approval for configurable high-value purchases.
+G. PHARMACY POS
+Create a highly optimized, keyboard-first checkout interface.
+Capabilities:
+- Barcode scanner support.
+- Fast medicine search by brand, generic, barcode, and SKU.
+- Product availability by branch and batch.
+- Clear batch and expiry warnings.
+- Cart management and quantity editing.
+- Unit-level and pack-level sales.
+- Prescription validation and pharmacist approval.
+- Discount policies and approval thresholds.
+- Tax calculation and invoice rounding.
+- Cash, card, mobile financial services, and split payments.
+- Customer selection and guest checkout.
+- Suspended and resumed transactions.
+- Payment confirmation and reconciliation.
+- Thermal and A4 receipts.
+- Cash drawer integration.
+- Refunds, exchanges, and credit notes.
+- Cashier shift opening, closing, and reconciliation.
+- Transaction search and reprinting.
+- Sale cancellation and reversal workflows.
+All final pricing and stock validation must occur on the backend.
+Never mark an electronic payment successful merely because a client reports success. Verify through the payment provider's trusted server-side channel.
+H. CONTROLLED OFFLINE POS
+Design offline operation explicitly rather than caching the entire online application.
+Requirements:
+- Registered and authorized devices only.
+- Encrypted local data storage.
+- Expiring device credentials and revocation controls.
+- Downloaded branch-scoped catalog and policy snapshots.
+- Bounded, server-issued offline inventory allocations.
+- Configurable offline transaction and value limits.
+- Locally generated globally unique transaction identifiers.
+- Durable append-only local transaction queue.
+- Idempotent synchronization and retry handling.
+- Sync acknowledgments and conflict-resolution states.
+- Visible offline status, sync backlog, and last successful sync.
+- Clear treatment of unconfirmed electronic payments.
+- Local receipt numbering with final server reconciliation.
+- Recovery after application crashes or power failures.
+Restricted medicines, recalled batches, pharmacist approval requirements, and transactions requiring live verification must not silently bypass policy while offline.
+If a safe offline transaction cannot be completed, block it and explain why.
+Never use last-write-wins to reconcile inventory or financial transactions.
+I. PRESCRIPTIONS AND PATIENT RECORDS
+Implement:
+- Prescription upload and protected storage.
+- Patient profiles with data minimization.
+- Prescriber information where required.
+- Prescription status and validity tracking.
+- Medicine line items and prescribed quantities.
+- Dispensing history.
+- Partial fulfillment where legally permissible.
+- Pharmacist verification and authorization.
+- Repeat-dispensing restrictions.
+- Controlled medicine registers where applicable.
+- Prescription-to-sale linkage.
+- Secure access logs.
+- Retention and deletion policies consistent with legal obligations.
+Do not automatically diagnose patients, prescribe medication, or recommend clinical substitutions.
+Any clinical decision support must be clearly distinguished from pharmacist judgment and independently validated before use.
+J. CUSTOMERS AND WHOLESALE
+Implement customer records, loyalty, purchase history, invoices, refunds, optional credit accounts, and privacy preferences.
+Wholesale functions must include:
+- Business customer profiles.
+- Credit limits.
+- Customer-specific price lists.
+- Quotations and sales orders.
+- Bulk invoices.
+- Delivery and fulfillment tracking.
+- Partial fulfillment.
+- Receivables and aging reports.
+- Returns and credit notes.
+- Sales representative permissions.
+Separate retail and wholesale pricing and approval policies.
+K. FINANCE AND ACCOUNTING
+Implement:
+- Transactional cash sessions.
+- Revenue and sales summaries.
+- Purchase costs and COGS.
+- Gross profit and margin.
+- Operating expenses.
+- Supplier payables.
+- Customer receivables.
+- Refund and credit-note accounting.
+- Payment reconciliation.
+- VAT and tax configurations.
+- Branch profitability.
+- Financial period closing.
+- Exportable financial statements.
+- Optional double-entry general ledger.
+For every finalized sale, financial effects and inventory movements must be consistent.
+If full accounting is enabled, journal entries must balance.
+Do not permit direct deletion or silent modification of posted financial records. Use authorized reversal and adjustment transactions.
+L. ANALYTICS AND REPORTING
+Include:
+- Revenue by date, cashier, product, category, and branch.
+- Gross and net profit.
+- Best-selling and slow-moving products.
+- Inventory turnover.
+- Stock aging.
+- Near-expiry and expired stock.
+- Inventory valuation.
+- Supplier performance.
+- Purchase and sales trends.
+- Cashier reconciliation.
+- Customer credit aging.
+- Reorder forecasts.
+- Batch recall exposure.
+- Prescription dispensing metrics.
+- Branch comparisons.
+- Audit and exception reports.
+Use precomputed aggregates or asynchronous reporting for expensive queries.
+Provide CSV, XLSX, and PDF exports with authorization and privacy controls.
+M. NOTIFICATIONS AND AUTOMATION
+Support:
+- Low-stock alerts.
+- Expiry warnings.
+- Recall notifications.
+- Pending approvals.
+- Unreconciled cash sessions.
+- Failed payment notifications.
+- Purchase delivery reminders.
+- Backup failures.
+- Suspicious login events.
+- Offline POS sync failures.
+- Subscription and license events.
+Use durable background jobs, retries, deduplication, dead-letter handling, and delivery status tracking.
+Never make a critical financial transaction depend on successful SMS or email delivery.
+N. USER INTERFACE AND EXPERIENCE
+Design a distinctive, modern enterprise interface.
+Visual direction:
+- Professional, restrained color palette.
+- Clear typography and consistent spacing.
+- Light and dark themes.
+- Accessible contrast and keyboard navigation.
+- Responsive layouts.
+- High-density data tables with sensible defaults.
+- Global search and command palette.
+- Breadcrumbs and persistent contextual navigation.
+- Clear success, warning, error, and loading states.
+- Skeleton loaders for meaningful waits.
+- Confirmation dialogs for destructive operations.
+- Inline form validation.
+- Saved filters and column preferences.
+- Accessible Bangla and English localization.
+Create role-specific workspaces:
+1. Owner executive dashboard.
+2. Branch manager dashboard.
+3. Pharmacist workspace.
+4. Cashier POS.
+5. Inventory operations.
+6. Procurement.
+7. Finance.
+8. Wholesale.
+9. Platform administration.
+Do not place unrelated roles' records into one undifferentiated screen.
+Prioritize operational efficiency over decorative animation.
+O. SECURITY ARCHITECTURE
+Implement a threat model before building sensitive features.
+Cover:
+- Broken access control.
+- Tenant isolation failures.
+- Authentication attacks.
+- Session hijacking.
+- Injection.
+- Cross-site scripting.
+- CSRF.
+- Insecure file uploads.
+- SSRF.
+- Credential exposure.
+- Supply-chain compromise.
+- Race conditions.
+- Duplicate transactions.
+- Malicious desktop clients.
+- Offline database theft.
+- Insider abuse.
+- Backup compromise.
+- Webhook spoofing.
+- Unauthorized data exports.
+Mandatory controls:
+- Secure password hashing using a vetted modern algorithm.
+- MFA for privileged accounts.
+- Least-privilege service accounts.
+- Server-side authorization for every sensitive action.
+- Secure HTTP-only cookies for web sessions.
+- CSRF protection where applicable.
+- Strict input validation.
+- Parameterized database access.
+- Tenant-scoped object authorization.
+- TLS for network communication.
+- Encryption at rest where appropriate.
+- Secrets stored outside source control.
+- Signed and verified payment webhooks.
+- Rate limiting and abuse monitoring.
+- Structured security logs.
+- Audit event integrity protection.
+- Dependency and container scanning.
+- Secure release artifact signing.
+- Tested backup restoration.
+- Incident response procedures.
+Use OWASP ASVS Level 2 as the baseline application-security verification target, with additional controls for sensitive healthcare and financial operations.
+Document all security assumptions and unresolved risks.
+P. DATABASE REQUIREMENTS
+Use PostgreSQL with:
+- UUID identifiers.
+- Tenant-scoped keys and constraints.
+- Foreign keys.
+- Unique constraints.
+- Check constraints.
+- Explicit transactional boundaries.
+- Appropriate composite indexes.
+- UTC timestamps.
+- Decimal financial values.
+- Versioned records where necessary.
+- Optimistic or pessimistic concurrency control.
+- Immutable-style movement and audit histories.
+- Schema migrations with tested rollback or forward-recovery procedures.
+No destructive schema migration should be deployed without an evaluated data recovery plan.
+Q. API CONTRACTS
+Use versioned REST APIs with OpenAPI documentation.
+Requirements:
+- Consistent validation errors.
+- Pagination and filtering.
+- Explicit permission requirements.
+- Idempotency keys for critical writes.
+- Correlation IDs.
+- Stable error codes.
+- Rate limiting.
+- Safe file-upload handling.
+- Webhook verification.
+- API compatibility tests.
+- Controlled deprecation policies.
+WebSockets must authenticate users and authorize each subscribed organization, branch, and event stream.
+R. TESTING AND QUALITY
+Write automated tests throughout development.
+Test:
+- Domain business rules.
+- Unit conversion and money arithmetic.
+- Stock ledger invariants.
+- FEFO allocation.
+- Concurrent checkout.
+- Refunds and reversals.
+- Duplicate payment callbacks.
+- Prescription restrictions.
+- Tenant isolation.
+- Branch authorization.
+- Offline sync recovery.
+- Interrupted transactions.
+- Device revocation.
+- Financial balancing.
+- Report accuracy.
+- Backup restoration.
+- Migration safety.
+- Browser and desktop user journeys.
+- Hardware integrations.
+Add load tests for peak checkout concurrency and reporting workloads.
+Define measurable performance budgets and evaluate them using representative production-like data.
+Never fabricate successful test results.
+S. DEPLOYMENT AND OPERATIONS
+Provide:
+- Local Docker Compose development.
+- Separate staging and production environments.
+- Managed PostgreSQL with tested backups.
+- Redis and dedicated background workers.
+- Private object storage.
+- TLS termination and secure reverse proxy.
+- CI/CD with gated releases.
+- Database migration controls.
+- Centralized logs and metrics.
+- Error monitoring and alerting.
+- Health and readiness checks.
+- Backup encryption and restoration exercises.
+- Disaster recovery procedures.
+- Tenant-aware support diagnostics.
+- Desktop update signing and release management.
+Do not expose PostgreSQL, Redis, or internal worker interfaces directly to the public internet.
+T. BANGLADESH MARKET CONFIGURATION
+Provide configurable support for:
+- Bangladeshi Taka.
+- Bangla and English UI.
+- Asia/Dhaka display timezone.
+- Bangladesh phone and address formats.
+- Retail and wholesale invoice layouts.
+- Local cash and digital payment methods.
+- Configurable VAT and tax rules.
+- Local pharmacy licensing and recordkeeping requirements.
+- Prescription and restricted-medicine controls.
+- Supplier and manufacturer records.
+- Local printing conventions.
+Do not invent legal requirements or hardcode tax rates without authoritative validation.
+Maintain a compliance requirements register with sources, owners, verification dates, and implementation status.
+U. DEVELOPMENT EXECUTION
+Before implementation:
+1. Inspect repository contents.
+2. Identify existing working functionality.
+3. Document architecture and risks.
+4. Establish domain entities and workflows.
+5. Create an implementation plan with dependencies.
+6. Define acceptance criteria.
+7. Establish test and security infrastructure.
+Then implement vertical slices in this order:
+1. Identity, tenancy, and organization.
+2. Catalog and medicine master data.
+3. Inventory ledger and receiving.
+4. POS and cash transactions.
+5. Procurement and supplier workflows.
+6. Prescriptions and pharmacist approvals.
+7. Finance and reconciliation.
+8. Offline POS and synchronization.
+9. Multi-branch operations.
+10. Reporting and analytics.
+11. SaaS subscription administration.
+12. Integrations and production hardening.
+For every slice:
+- Implement database schema and migrations.
+- Implement domain services.
+- Implement API contracts.
+- Implement frontend workflows.
+- Implement permissions.
+- Implement tests.
+- Implement audit events.
+- Update relevant documentation.
+- Run checks and report actual results.
+Do not proceed with unresolved critical correctness or security defects.
+V. PROFESSIONAL REPOSITORY STANDARDS
+Use natural, concise, developer-oriented documentation.
+The README should describe:
+- Product purpose.
+- Main features.
+- Architecture overview.
+- Local development.
+- Environment variables.
+- Testing.
+- Deployment.
+- Security reporting.
+- Known limitations.
+Never include artificial development narration such as:
+- Completed milestone 07, moving to milestone 08.
+- Generated by an AI coding agent.
+- This project was vibe coded.
+- Automatically created enterprise-grade masterpiece.
+- Run every cell because the agent completed the pipeline.
+Do not add generic comments to every line.
+Avoid dead code, placeholder functionality presented as complete, mock financial records in production, and meaningless tests.
+Use a consistent formatter, linter, type checker, migration workflow, and code review process.
+W. RELEASE ACCEPTANCE GATES
+A feature is complete only when:
+- Business rules are documented.
+- Required permissions are enforced.
+- Tenant isolation is verified.
+- Transactions behave correctly under concurrency.
+- Expected failure modes are handled.
+- Automated tests pass.
+- Relevant UI states are implemented.
+- Audit records are emitted.
+- Performance is acceptable.
+- Documentation is updated.
+The product must not be marketed as production-ready until:
+- Critical and high-severity security issues are resolved or formally risk-accepted where appropriate.
+- Independent security assessment is completed.
+- Backup recovery is demonstrated.
+- Financial reconciliation is validated.
+- Offline recovery is validated.
+- Applicable regulatory requirements are reviewed.
+- Real pharmacy users complete supervised acceptance testing.
+- Deployment and incident-response procedures are documented.
+FINAL EXECUTION INSTRUCTION
+Begin by auditing the repository and preparing the architecture, data model, threat model, module dependency graph, and first implementation slice.
+Do not generate the entire platform as a single untested batch.
+Build working functionality incrementally, preserve data integrity, and provide concise engineering summaries describing actual code changes, tests performed, and remaining risks.
+The objective is a secure, maintainable, commercially deployable pharmacy platform whose engineering quality can be independently verified.
+
+
+
+
+5. Database architecture and core schema
+For a commercial SaaS product, the database design is one of the most important decisions.
+I recommend shared PostgreSQL infrastructure with strict tenant isolation, using tenant-scoped composite foreign keys and PostgreSQL Row-Level Security as defense in depth. The application must still enforce authorization itself.
+Core entity relationships
+
+The diagram is intentionally simplified. The actual schema needs separate sale lines, purchase lines, stock locations, prescription records, journal entries, reservations, and many-to-many relationship tables.
+Required tables
+Domain	Important tables
+Tenancy	tenants, tenant_settings, subscriptions, plans, entitlements
+Identity	users, memberships, roles, permissions, role_assignments, sessions, devices
+Organization	branches, warehouses, registers, storage_locations
+Catalog	products, generics, manufacturers, product_units, product_barcodes, tenant_products
+Inventory	stock_batches, stock_balances, stock_movements, stock_reservations, stock_counts, stock_transfers, recalls
+Procurement	suppliers, purchase_orders, purchase_order_lines, goods_receipts, goods_receipt_lines, supplier_returns
+Sales	sales, sale_lines, payments, refunds, cash_sessions, price_lists
+Prescriptions	patients, prescriptions, prescription_lines, dispensations, pharmacist_approvals
+Finance	accounts, journal_entries, journal_lines, expenses, receivables, payables, reconciliations
+Operations	notifications, audit_events, outbox_events, sync_operations, idempotency_records
+Example: batch-level inventory model
+CREATE TABLE stock_batches (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL,
+    branch_id UUID NOT NULL,
+    product_id UUID NOT NULL,
+    batch_number VARCHAR(100) NOT NULL,
+    expiry_date DATE NOT NULL,
+    unit_cost NUMERIC(18, 4) NOT NULL
+        CHECK (unit_cost >= 0),
+    status VARCHAR(30) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+        DEFAULT NOW(),
+
+    UNIQUE (tenant_id, id)
+);
+
+
+This is illustrative, not the complete migration. Production tables must include appropriate composite foreign keys, indexes, validated status constraints, and additional business attributes.
+For the inventory engine:
+- stock_movements records every movement with a signed quantity, reason, source document, and actor.
+- stock_balances provides concurrency-controlled current quantities.
+- stock_reservations prevents checkout and offline allocations from competing for the same units.
+- stock_batches maintains product batch identity and expiry information.
+- A reconciliation process verifies that materialized balances match ledger movements.
+Important database invariant: Available quantity must never become negative. Posted financial transactions must balance, and completed operations must never be processed twice because of repeated API calls.
+6. Critical business workflows
+Workflow A — Medicine purchasing and stock receiving
+1
+Purchase order approved
+
+
+2
+Supplier delivers medicines
+
+
+3
+Verify quantities, batches and expiry
+
+
+4
+Create goods receipt and stock movements
+
+
+5
+Update inventory and supplier payable
+
+
+
+Receiving must reject invalid batches and prevent duplicate posting of the same receipt.
+Workflow B — Pharmacy checkout
+1
+Scan barcode or search medicine
+
+
+2
+Check restrictions and select eligible batch
+
+
+3
+Verify stock, prices and pharmacist approval
+
+
+4
+Authorize and finalize payment
+
+
+5
+Atomically post sale, stock and financial records
+
+
+6
+Issue receipt and audit event
+
+
+
+External payment confirmation may require a pending state and reconciliation before the sale is finalized.
+Workflow C — Offline desktop POS
+1
+Device receives authorized offline allocation
+
+
+2
+Network connection is lost
+
+
+3
+Cashier completes permitted local transaction
+
+
+4
+Encrypted transaction enters durable sync queue
+
+
+5
+Connection returns; server validates idempotently
+
+
+6
+Server acknowledges or flags reconciliation
+
+
+
+Unresolved conflicts require visible review. Transactions must not silently disappear or be applied twice.
+
+7. User roles and access-control design
+Role	Scope	Main capabilities
+Platform administrator	SaaS platform	Tenant and infrastructure administration; no routine patient-data access
+Pharmacy owner	Organization	Business settings, branch performance, financial oversight
+Branch manager	Assigned branches	Operational supervision, approved adjustments, staff oversight
+Pharmacist	Authorized branch	Prescription verification, dispensing approvals, medicine restrictions
+Cashier	Assigned register	Checkout, permitted returns, shift reconciliation
+Inventory manager	Assigned locations	Receiving, stock counts, transfers, batch tracking
+Procurement officer	Organization/branch	Suppliers, purchase orders, purchasing reports
+Accountant	Authorized entities	Journals, expenses, reconciliations, financial reporting
+Auditor	Explicitly assigned scope	Read-only evidence and audit records
+These are default role templates, not unconditional permissions. High-risk actions should also check branch assignment, transaction amount, device status, approval state, and other contextual restrictions.
+8. Security and production readiness
+A system handling pharmacy sales, prescription information, and financial records should use a formal security verification process.
+Release security checklist
+Verification progress
+0 / 10
+
+
+
+[ ] Threat model completed and reviewed
+[ ] Cross-tenant isolation tests passed
+[ ] MFA and authorization controls verified
+[ ] Payment callback and replay protection tested
+[ ] Concurrent stock deductions tested
+[ ] Offline POS device compromise scenarios reviewed
+[ ] Backup restoration demonstrated
+[ ] Dependency and container scans completed
+[ ] External penetration test findings resolved
+[ ] Incident response and rollback procedures rehearsed
+This is a planning checklist, not evidence that the controls have already been implemented or tested.
+Suggested initial performance targets
+These are engineering objectives to validate during pilot testing, not guaranteed benchmarks.
+Operation	Target
+Barcode lookup	p95 under 200 ms, server-side
+Typical online sale finalization	p95 under 1 second, excluding external payment processing and printing
+Standard dashboard query	p95 under 2 seconds
+Desktop local search	p95 under 150 ms
+Common inventory report	Under 5 seconds for defined pilot datasets
+Critical-service availability	Initial target 99.9% monthly
+Recovery point objective	Initially 15 minutes
+Recovery time objective	Initially 2 hours
+Measure targets using realistic medicine catalogs, large stock movement histories, concurrent cashiers, and constrained pharmacy internet connections.
+9. Development phases and delivery gates
+01
+
+Architecture and foundation
+Requirements, UX flows, threat model, monorepo, CI, identity, tenancy and authorization.
+Exit gate: Tenant isolation and authentication tests pass.
+
+
+
+
+02
+
+Medicine catalog and inventory
+Product master data, unit conversion, batch tracking, stock ledger, racks, expiry and stock counts.
+Exit gate: Inventory invariants hold under concurrent operations.
+
+
+
+
+03
+
+Retail POS
+Barcode lookup, checkout, receipts, payments, discounts, cashier shifts, refunds.
+Exit gate: End-to-end checkout and reconciliation tests pass.
+
+
+
+
+04
+
+Procurement and prescriptions
+Suppliers, purchasing, goods receipts, pharmacist approvals, dispensing and restricted medicine workflows.
+Exit gate: Approval and receiving workflows are validated.
+
+
+
+
+05
+
+Finance and reporting
+COGS, expenses, receivables, payables, accounting, dashboards and reports.
+Exit gate: Reconciliation and financial accuracy tests pass.
+
+
+
+
+06
+
+Desktop and offline POS
+Tauri packaging, device registration, local encryption, inventory allocations, durable synchronization.
+Exit gate: Disconnection, retry, duplicate and recovery tests pass.
+
+
+
+
+07
+
+Commercial SaaS
+Tenant provisioning, subscriptions, plans, billing, multi-branch administration and integrations.
+Exit gate: Cross-tenant and subscription entitlement tests pass.
+
+
+
+
+08
+
+Production hardening and pilot
+Load testing, penetration testing, disaster recovery, legal review, training and supervised pharmacy rollout.
+Exit gate: Release acceptance criteria and operational sign-off complete.
+
+
+
+
+10. Bangladesh-specific production considerations
+Before accepting live pharmacy customers, establish a compliance register covering:
+- DGDA: Pharmacy licensing, medicine classifications, dispensing and recordkeeping requirements applicable to the intended businesses.
+- NBR: Applicable VAT, invoicing, fiscal recordkeeping, and tax treatment.
+- Payments: Merchant onboarding, transaction confirmation, refunds, settlement, and reconciliation for supported payment providers.
+- Patient information: Access controls, privacy notices, lawful processing, retention, and breach-response obligations.
+- Pharmacy hardware: Actual supported printer models, barcode scanners, and Windows/Linux driver behavior.
+These requirements must be checked against current authoritative guidance. They should not be inferred from competitor advertisements.
+11. Recommended first implementation
+I recommend starting with a vertical slice that can be thoroughly tested:
+Tenant registration → branch creation → medicine catalog → batch receiving → barcode checkout → receipt → stock ledger → sales report.
+This gives you a working end-to-end pharmacy operation and a strong foundation for every later module.
+Use a private repository during development, configure branch protection and mandatory CI checks, and keep separate development, staging, and production environments.
+Do not populate production with fictional patient data, use real customer credentials for testing, or publicly expose development databases.
+Final project deliverables
+The complete product should ultimately include the source code, versioned database migrations, OpenAPI specification, architecture decision records, automated test suites, desktop installers, deployment configuration, operational runbooks, security documentation, backup/restore procedures, administrator documentation, and role-specific user manuals.
+The master prompt above is ready to use with a coding agent. It is intentionally structured to prevent an agent from generating an impressive-looking but unreliable system in one pass.
+My recommendation: Treat this as a long-term commercial engineering project. Build the transaction and inventory foundations first, then expand to the complete pharmacy ERP and SaaS platform. The main competitive advantage will be reliable daily pharmacy operations—not simply having more dashboard features.

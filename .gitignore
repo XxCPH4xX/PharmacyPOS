@@ -1,0 +1,41 @@
+node_modules/
+.next/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+.env.local
+*.sqlite3
+playwright-report/
+test-results/
+.local/
+*.log
+coverage/
+*.tsbuildinfo
+
+# Environment and secrets
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.mypy_cache/
+.pyright/
+*.egg-info/
+dist/
+build/
+
+# Frontend
+.nuxt/
+.turbo/
+out/
+
+# Local files
+.DS_Store
+Thumbs.db
+*.bak
+*.sqlite
+*.sqlite3-journal

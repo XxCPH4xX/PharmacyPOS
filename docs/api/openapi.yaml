@@ -1,0 +1,1321 @@
+openapi: 3.0.3
+info:
+  title: PharmaCore API
+  version: 0.1.0
+  description: Online pilot. Cash and staff-confirmed bKash/Nagad records; no live
+    payment gateway. Prices are integer paisa. X-Branch-ID selects an authorized branch.
+    Idempotency-Key is required for receiving and checkout.
+paths:
+  /api/v1/audit/:
+    get:
+      operationId: audit_retrieve
+      tags:
+      - audit
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/demo/:
+    post:
+      operationId: auth_demo_create
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/invitation/:
+    post:
+      operationId: auth_invitation_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInviteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AcceptInviteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AcceptInviteInput'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/auth/mfa/:
+    get:
+      operationId: auth_mfa_retrieve
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    post:
+      operationId: auth_mfa_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EnrollmentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EnrollmentInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/mfa/confirm/:
+    post:
+      operationId: auth_mfa_confirm_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CodeInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CodeInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/mfa/verify/:
+    post:
+      operationId: auth_mfa_verify_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CodeInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CodeInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: auth_register_create
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/auth/session/:
+    get:
+      operationId: auth_session_retrieve
+      tags:
+      - auth
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/branches/:
+    post:
+      operationId: branches_create
+      tags:
+      - branches
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/catalog/:
+    get:
+      operationId: catalog_retrieve
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: offset
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      tags:
+      - catalog
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    post:
+      operationId: catalog_create
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/catalog/{product_id}/units/:
+    put:
+      operationId: catalog_units_update
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnitInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UnitInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UnitInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/customers/:
+    get:
+      operationId: customers_retrieve
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+      - in: query
+        name: offset
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+      tags:
+      - customers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    post:
+      operationId: customers_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - customers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomerInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/dashboard/:
+    get:
+      operationId: dashboard_retrieve
+      tags:
+      - dashboard
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/health/:
+    get:
+      operationId: health_retrieve
+      tags:
+      - health
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/inventory/batches/:
+    get:
+      operationId: inventory_batches_retrieve
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/inventory/ledger/:
+    get:
+      operationId: inventory_ledger_retrieve
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/inventory/receive/:
+    post:
+      operationId: inventory_receive_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiveInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReceiveInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReceiveInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/sales/:
+    get:
+      operationId: sales_list
+      tags:
+      - sales
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/sales/{sale_id}/:
+    get:
+      operationId: sales_receipt
+      parameters:
+      - in: path
+        name: sale_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sales
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/sales/checkout/:
+    post:
+      operationId: sales_checkout_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - sales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CheckoutInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckoutInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/sales/export/:
+    get:
+      operationId: sales_export_retrieve
+      tags:
+      - sales
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/v1/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/settings/printing/:
+    get:
+      operationId: settings_printing_retrieve
+      tags:
+      - settings
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    put:
+      operationId: settings_printing_update
+      tags:
+      - settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptProfileInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReceiptProfileInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReceiptProfileInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/staff/:
+    get:
+      operationId: staff_retrieve
+      tags:
+      - staff
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+    post:
+      operationId: staff_create
+      tags:
+      - staff
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InviteInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/staff/{member_id}/revoke/:
+    post:
+      operationId: staff_revoke_create
+      parameters:
+      - in: path
+        name: member_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - staff
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/v1/staff/invitations/{invitation_id}/revoke/:
+    post:
+      operationId: staff_invitations_revoke_create
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - staff
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    AcceptInviteInput:
+      type: object
+      properties:
+        token:
+          type: string
+          maxLength: 100
+        name:
+          type: string
+          maxLength: 100
+        password:
+          type: string
+          maxLength: 128
+        code:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - name
+      - password
+      - token
+    BranchInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          default: ''
+          maxLength: 250
+      required:
+      - name
+    CartLineInput:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          maximum: 10000
+          minimum: 1
+        expected_price_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        unit_id:
+          type: string
+          format: uuid
+          nullable: true
+        expected_base_units:
+          type: integer
+          maximum: 10000
+          minimum: 1
+      required:
+      - expected_price_minor
+      - product_id
+      - quantity
+    CheckoutInput:
+      type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLineInput'
+        tendered_minor:
+          type: integer
+          maximum: 1000000000000
+          minimum: 0
+          format: int64
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        payment_reference:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{4,80}$
+        payment_confirmed:
+          type: boolean
+        customer_id:
+          type: string
+          format: uuid
+          nullable: true
+        customer_name:
+          type: string
+          maxLength: 100
+        customer_phone:
+          type: string
+          pattern: ^[+0-9 ()-]{0,25}$
+        customer_address:
+          type: string
+          maxLength: 250
+        customer_bin:
+          type: string
+          pattern: ^\d{13}$
+        customer_type:
+          $ref: '#/components/schemas/CustomerTypeEnum'
+        staff_name:
+          type: string
+          maxLength: 100
+        created_by:
+          type: string
+          maxLength: 100
+        remarks:
+          type: string
+          maxLength: 500
+      required:
+      - lines
+      - tendered_minor
+    CodeInput:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 64
+      required:
+      - code
+    CustomerInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        phone:
+          type: string
+          default: ''
+          maxLength: 25
+        address:
+          type: string
+          default: ''
+          maxLength: 250
+        bin:
+          type: string
+          default: ''
+          pattern: ^[0-9]{13}$
+      required:
+      - name
+    CustomerTypeEnum:
+      enum:
+      - Retail
+      - Delivery
+      - Collection
+      type: string
+      description: |-
+        * `Retail` - Retail
+        * `Delivery` - Delivery
+        * `Collection` - Collection
+    EnrollmentInput:
+      type: object
+      properties:
+        password:
+          type: string
+          maxLength: 128
+      required:
+      - password
+    FormEnum:
+      enum:
+      - Tablets
+      - Capsules
+      - Syrups
+      - Injections
+      - Supplies
+      type: string
+      description: |-
+        * `Tablets` - Tablets
+        * `Capsules` - Capsules
+        * `Syrups` - Syrups
+        * `Injections` - Injections
+        * `Supplies` - Supplies
+    InviteInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - email
+      - role
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        password:
+          type: string
+          maxLength: 128
+      required:
+      - email
+      - password
+    NameEnum:
+      enum:
+      - BOX
+      - STRIP
+      - PACK
+      type: string
+      description: |-
+        * `BOX` - BOX
+        * `STRIP` - STRIP
+        * `PACK` - PACK
+    PaperWidthEnum:
+      enum:
+      - 58
+      - 80
+      type: integer
+      description: |-
+        * `58` - 58
+        * `80` - 80
+    PaymentMethodEnum:
+      enum:
+      - cash
+      - bkash
+      - nagad
+      type: string
+      description: |-
+        * `cash` - cash
+        * `bkash` - bkash
+        * `nagad` - nagad
+    ProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        generic:
+          type: string
+          maxLength: 150
+        strength:
+          type: string
+          maxLength: 60
+        form:
+          $ref: '#/components/schemas/FormEnum'
+        manufacturer:
+          type: string
+          maxLength: 120
+        prescription_required:
+          type: boolean
+          default: false
+        sku:
+          type: string
+          maxLength: 40
+          pattern: ^[a-zA-Z0-9_-]+$
+        barcode:
+          type: string
+          maxLength: 64
+          pattern: ^[a-zA-Z0-9_-]+$
+        price_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        reorder_level:
+          type: integer
+          maximum: 100000
+          minimum: 0
+          default: 30
+      required:
+      - barcode
+      - form
+      - generic
+      - manufacturer
+      - name
+      - price_minor
+      - sku
+      - strength
+    ReceiptProfileInput:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        shop_name:
+          type: string
+          maxLength: 150
+        address:
+          type: string
+          maxLength: 250
+        phone:
+          type: string
+          maxLength: 60
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        contact_name:
+          type: string
+          maxLength: 100
+        bin:
+          type: string
+          pattern: ^\d{13}$
+        drug_license:
+          type: string
+          maxLength: 80
+        logo_data_url:
+          type: string
+          maxLength: 1500000
+        paper_width:
+          $ref: '#/components/schemas/PaperWidthEnum'
+        font_size:
+          type: integer
+          maximum: 14
+          minimum: 9
+        show_logo:
+          type: boolean
+        show_batch:
+          type: boolean
+        show_staff:
+          type: boolean
+        show_amount_words:
+          type: boolean
+        qr_enabled:
+          type: boolean
+        qr_value:
+          type: string
+          maxLength: 500
+        receipt_terms:
+          type: string
+          maxLength: 1500
+        default_staff_name:
+          type: string
+          maxLength: 100
+        default_created_by:
+          type: string
+          maxLength: 100
+        show_barcode:
+          type: boolean
+        invoice_terms:
+          type: string
+          maxLength: 1000
+        signature_name:
+          type: string
+          maxLength: 100
+        invoice_accent:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+      required:
+      - address
+      - bin
+      - contact_name
+      - drug_license
+      - email
+      - font_size
+      - invoice_accent
+      - invoice_terms
+      - logo_data_url
+      - paper_width
+      - phone
+      - qr_enabled
+      - qr_value
+      - shop_name
+      - show_amount_words
+      - show_batch
+      - show_logo
+      - show_staff
+      - signature_name
+      - version
+    ReceiveInput:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        batch_number:
+          type: string
+          maxLength: 80
+        expiry:
+          type: string
+          format: date
+        quantity:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+        unit_cost_minor:
+          type: integer
+          maximum: 100000000
+          minimum: 0
+        supplier:
+          type: string
+          maxLength: 120
+        reference:
+          type: string
+          maxLength: 80
+        location:
+          type: string
+          default: A-01
+          maxLength: 40
+      required:
+      - batch_number
+      - expiry
+      - product_id
+      - quantity
+      - reference
+      - supplier
+      - unit_cost_minor
+    RegisterInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 150
+        password:
+          type: string
+          maxLength: 128
+        name:
+          type: string
+          maxLength: 100
+        organization:
+          type: string
+          maxLength: 150
+        branch:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          default: ''
+          maxLength: 250
+      required:
+      - branch
+      - email
+      - name
+      - organization
+      - password
+    RoleEnum:
+      enum:
+      - manager
+      - cashier
+      - auditor
+      - pharmacist
+      - inventory
+      - accountant
+      type: string
+      description: |-
+        * `manager` - manager
+        * `cashier` - cashier
+        * `auditor` - auditor
+        * `pharmacist` - pharmacist
+        * `inventory` - inventory
+        * `accountant` - accountant
+    UnitInput:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/NameEnum'
+        base_units:
+          type: integer
+          maximum: 10000
+          minimum: 2
+        active:
+          type: boolean
+          default: true
+      required:
+      - base_units
+      - name
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

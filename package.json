@@ -1,0 +1,15 @@
+{
+  "name": "pharmacore",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "pnpm --filter @pharmacore/web dev",
+    "build": "pnpm --filter @pharmacore/web build",
+    "typecheck": "pnpm --filter @pharmacore/web typecheck",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "prettier": "^3.9.10"
+  }
+}
