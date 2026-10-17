@@ -120,9 +120,11 @@ def _checkout(scope, data, key, *, occurred_at=None):
     data = {"discount_type": "none", "discount_value": 0, **data}
     fingerprint, prior = lock_operation(scope, "checkout", key, data)
     if prior is not None:
-        prior_sale = Sale.objects.filter(
-            id=prior.get("id"), tenant=scope.tenant, branch=scope.branch
-        ).only("cashier_id").first()
+        prior_sale = (
+            Sale.objects.filter(id=prior.get("id"), tenant=scope.tenant, branch=scope.branch)
+            .only("cashier_id")
+            .first()
+        )
         if prior_sale is None or (
             prior_sale.cashier_id != scope.user.id and not scope.has_role("owner", "manager")
         ):
