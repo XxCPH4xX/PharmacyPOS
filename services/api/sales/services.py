@@ -4,11 +4,11 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from catalog.models import ProductUnit, TenantProduct
-from core.tax import calculate, config_for
 from core.errors import BusinessError
 from core.models import Customer
 from core.operations import audit, complete_operation, lock_operation
 from core.receipts import amount_words, profile_snapshot
+from core.tax import calculate, config_for, enforce_discount_policy
 from inventory.models import Batch, StockMovement
 from inventory.packaging import available_packages, consume_packages, physical_counts, record_packages
 from sales.models import Payment, Sale, SaleItem, SaleLine
@@ -231,6 +231,7 @@ def _checkout(scope, data, key, *, occurred_at=None):
     if total > 1000000000000:
         raise BusinessError("Sale total exceeds the supported limit.", "amount_limit", 400)
     configuration = config_for(scope.tenant)
+    enforce_discount_policy(scope, configuration, data.get("discount_type", "none"), data.get("discount_value", 0))
     if data.get("expected_tax_version") is not None and data["expected_tax_version"] != configuration["version"]:
         raise BusinessError("VAT settings changed. Review this sale.", "tax_settings_changed", 409)
     try:

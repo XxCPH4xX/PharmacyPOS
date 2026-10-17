@@ -4,17 +4,17 @@ import io
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from catalog.models import ProductUnit, TenantProduct
 from catalog.views import Pagination
 from core.access import scope_for
 from core.operations import audit
-from core.serializers import CheckoutInput, StrictSerializer, CartLineInput
-from core.tax import calculate, config_for
-from catalog.models import TenantProduct, ProductUnit
-from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from core.serializers import CartLineInput, CheckoutInput, StrictSerializer
+from core.tax import calculate, config_for, enforce_discount_policy
 from sales.models import Sale
 from sales.services import checkout, receipt_data
 
@@ -54,6 +54,7 @@ class QuoteView(APIView):
             lines.append({"product_id": item.id, "amount_minor": price * entry["quantity"]})
         try:
             configuration = config_for(scope.tenant)
+            enforce_discount_policy(scope, configuration, entries["discount_type"], entries["discount_value"])
             result = calculate(lines, configuration, entries["discount_type"], entries["discount_value"])
             result["settings_version"] = configuration["version"]
         except ValueError as exc:

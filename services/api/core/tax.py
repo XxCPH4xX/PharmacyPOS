@@ -1,6 +1,9 @@
 """Tenant-scoped VAT rules and monetary calculations. All money is in paisa."""
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
+
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
+
 from core.serializers import StrictSerializer
 
 MAX_RATE = 10000  # basis points: 10000 = 100%; never infer Bangladesh statutory rates
@@ -33,6 +36,22 @@ DEFAULT = {"enabled": False, "default_rate_bps": 0, "default_mode": "exclusive",
 
 def config_for(tenant):
     return {**DEFAULT, **(tenant.tax_config or {})}
+
+def enforce_discount_policy(scope, configuration, discount_type, discount_value):
+    """Cashiers may use the owner-configured discount, not create their own.
+
+    The policy belongs at the quote and checkout service boundaries because
+    hiding an input in the browser does not prevent a forged HTTP request.
+    """
+    if scope.has_role("owner", "manager"):
+        return
+    default_bps = configuration.get("default_product_discount_bps", 0)
+    if discount_type == "none" and discount_value == 0:
+        return
+    if discount_type == "percent" and discount_value == default_bps:
+        return
+    raise PermissionDenied("A manager must approve a discount different from the pharmacy default.")
+
 
 def round_minor(value):
     return int(Decimal(value).quantize(Decimal("1"), rounding=ROUND_HALF_UP))

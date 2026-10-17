@@ -1,13 +1,9 @@
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView
 
-
+from catalog.import_views import MedicineImportCommitView, MedicineImportPreviewView
 from catalog.unit_views import ProductUnitsView
 from catalog.views import CatalogView
-from catalog.import_views import (
-    MedicineImportPreviewView,
-    MedicineImportCommitView,
-)
 from core.auth_views import DemoView, LoginView, LogoutView, RegisterView, SessionView
 from core.customers import CustomersView
 from core.maintenance import RemoveMedicineView, ResetWorkspaceView
@@ -21,9 +17,9 @@ from core.security_views import (
     StaffRevokeView,
     StaffView,
 )
+from core.tax_views import TaxSettingsView
 from core.views import AuditView, BranchView, DashboardView, HealthView
 from core.workspace_settings import WorkspaceSettingsView
-from core.tax_views import TaxSettingsView
 from inventory.views import BatchesView, LedgerView, ReceiveView
 from sales.views import CheckoutView, QuoteView, ReceiptView, SalesExportView, SalesView
 

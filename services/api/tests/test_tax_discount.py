@@ -3,8 +3,9 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
-from core.tax import calculate, config_for
+
 from core.errors import BusinessError
+from core.tax import calculate, config_for, enforce_discount_policy
 from sales.models import Sale
 from sales.services import checkout
 
@@ -132,3 +133,28 @@ def test_default_discount_remains_compatible_with_exclusive_vat():
               "default_product_discount_bps": 1000, "rules": []}
     result = calculate([{"product_id": str(uuid4()), "amount_minor": 100000}], config)
     assert (result["discount_minor"], result["vat_minor"], result["total_minor"]) == (10000, 4500, 94500)
+
+
+def test_cashier_cannot_set_custom_discount_even_when_default_is_configured():
+    class CashierScope:
+        def has_role(self, *roles):
+            return False
+
+    from rest_framework.exceptions import PermissionDenied
+
+    config = {"default_product_discount_bps": 1000}
+    enforce_discount_policy(CashierScope(), config, "none", 0)
+    enforce_discount_policy(CashierScope(), config, "percent", 1000)
+    with pytest.raises(PermissionDenied):
+        enforce_discount_policy(CashierScope(), config, "percent", 10000)
+    with pytest.raises(PermissionDenied):
+        enforce_discount_policy(CashierScope(), config, "fixed", 500)
+
+
+def test_manager_can_set_transaction_discount():
+    class ManagerScope:
+        def has_role(self, *roles):
+            return "manager" in roles
+
+    enforce_discount_policy(ManagerScope(), {}, "percent", 10000)
+    enforce_discount_policy(ManagerScope(), {}, "fixed", 123)

@@ -1,7 +1,8 @@
 from django.db import transaction
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError
+
 from catalog.models import TenantProduct
 from core.access import scope_for
 from core.models import Tenant

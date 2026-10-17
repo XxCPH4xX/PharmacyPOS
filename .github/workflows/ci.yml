@@ -42,6 +42,7 @@ jobs:
       - run: python scripts/api.py makemigrations --check --dry-run
       - run: python scripts/api.py test
       - run: python scripts/api.py spectacular --file ../../docs/api/openapi.yaml --validate --fail-on-warn
+      - run: node --test apps/web/tests/offline-core.test.mjs
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium

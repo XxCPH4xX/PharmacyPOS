@@ -14,7 +14,6 @@ from catalog.services import create_product
 from core.access import scope_for
 from core.serializers import ProductInput
 
-
 COLUMNS = [
     "name",
     "generic",
