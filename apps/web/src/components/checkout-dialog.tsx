@@ -1,6 +1,7 @@
 "use client";
 
 import { Banknote, Delete, Smartphone } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { money, toMinor } from "@/lib/api";
 import { Button, Field, Modal } from "./ui";
 import { paymentNames } from "./print-documents";
@@ -48,12 +49,74 @@ export function CheckoutDialog({
   error: string;
   onPay: () => void;
 }) {
+  const cashInputRef = useRef<HTMLInputElement>(null);
+
+
+  useEffect(() => {
+    if (!open || method !== "cash" || busy || pending) return;
+
+    const focusInput = () => {
+      cashInputRef.current?.focus();
+      cashInputRef.current?.select();
+    };
+
+    const frame = requestAnimationFrame(focusInput);
+
+    return () => cancelAnimationFrame(frame);
+  }, [open, method, busy, pending]);
+
+  useEffect(() => {
+    if (!open || method !== "cash") return;
+
+    const handleKeyboard = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (
+        target instanceof HTMLElement &&
+        (target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (busy || pending) return;
+
+      if (/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
+        key(event.key);
+        cashInputRef.current?.focus();
+      } else if (event.key === ".") {
+        event.preventDefault();
+        key(".");
+        cashInputRef.current?.focus();
+      } else if (event.key === "Backspace") {
+        event.preventDefault();
+        key("delete");
+        cashInputRef.current?.focus();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+
+        if (!event.repeat && lines.length && validCash) {
+          onPay();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboard);
+    return () => window.removeEventListener("keydown", handleKeyboard);
+  });
+
   let received = 0,
     validCash = false;
   try {
     received = toMinor(tender);
     validCash = received >= total;
-  } catch {}
+  } catch { }
   const locked = busy || pending;
   const shortcuts = [
     ...new Set(
@@ -152,19 +215,39 @@ export function CheckoutDialog({
           </div>
           {method === "cash" ? (
             <>
+
+
+
               <Field label="Cash received (৳)">
                 <input
+                  ref={cashInputRef}
                   className="cash-received-input"
                   aria-label="Cash received"
                   type="text"
                   inputMode="decimal"
                   value={tender}
-                  onChange={(event) => onTender(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (/^\d{0,10}(\.\d{0,2})?$/.test(value)) {
+                      onTender(value);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter") return;
+
+                    event.preventDefault();
+
+                    if (!event.repeat && !locked && lines.length && validCash) {
+                      onPay();
+                    }
+                  }}
                   disabled={locked}
                   placeholder="0.00"
                   autoComplete="off"
                 />
               </Field>
+
               <div className="cash-shortcuts">
                 <button
                   disabled={locked}
