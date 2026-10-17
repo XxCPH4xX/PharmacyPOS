@@ -26,8 +26,8 @@ export type TaxSnapshot = { enabled: boolean; default_rate_bps: number;
     rate_bps?: number; mode?: "inclusive" | "exclusive" }[] };
 export type CatalogSnapshot = { capturedAt: number; products: Product[]; tax: TaxSnapshot };
 export type LocalCashSale = { id: string; identity: string; branch: string; createdAt: number;
-  payload: CashPayload; status: "queued" | "needs_review" | "synced";
-  error: string; receipt?: Receipt };
+  payload: CashPayload; status: "queued" | "needs_review" | "synced" | "superseded";
+  error: string; errorCode?: string; receipt?: Receipt };
 
 type SecureRecord = { id: string; iv: number[]; cipher: ArrayBuffer };
 
@@ -137,9 +137,27 @@ export async function listCashSales(identity: string, branch: string): Promise<L
   const decoded = await Promise.all(matches.map((row) => decrypt<LocalCashSale>(row)));
   return decoded.sort((a, b) => a.createdAt - b.createdAt);
 }
+// Only definitive server rejections can be revised as a new sale. Never
+// supersede a checkout with an unknown outcome or an idempotency conflict.
+const CORRECTABLE_CODES = new Set([
+  "price_changed", "unit_changed", "unit_not_found", "insufficient_stock",
+]);
+export function isCorrectableRejection(sale: LocalCashSale): boolean {
+  return sale.status === "needs_review" && CORRECTABLE_CODES.has(sale.errorCode || "");
+}
+export async function supersedeRejectedCashSale(identity: string, branch: string, id: string): Promise<void> {
+  const key = `sale:${identity}:${branch}:${id}`;
+  const sale = await read<LocalCashSale>(key);
+  if (!sale || sale.identity !== identity || sale.branch !== branch || sale.id !== id ||
+      !isCorrectableRejection(sale))
+    throw new Error("Only an explicitly rejected checkout can be replaced after review.");
+  // Preserve the rejected record for reconciliation history, but release its
+  // provisional stock reservation before creating a new checkout key.
+  await write(key, { ...sale, status: "superseded" });
+}
 export function reservedBaseUnits(sales: LocalCashSale[]): Record<string, number> {
   const reserved: Record<string, number> = {};
-  for (const sale of sales) if (sale.status !== "synced") {
+  for (const sale of sales) if (sale.status === "queued" || sale.status === "needs_review") {
     for (const line of sale.payload.lines) reserved[line.product_id] =
       (reserved[line.product_id] || 0) + line.quantity * (line.expected_base_units || 1);
   }
@@ -247,7 +265,7 @@ export async function synchronizeCashSales(identity: string, branch: string): Pr
         // Keep an uncertain outcome queued with the original idempotency key.
         // Permission failure can be a timed-out session; do not turn it into a sale.
         if (error.status >= 400 && error.status < 500 && ![401, 403, 429].includes(error.status)) {
-          await saveCashSale({ ...sale, status: "needs_review", error: error.message });
+          await saveCashSale({ ...sale, status: "needs_review", error: error.message, errorCode: error.code });
           review++;
           continue;
         }

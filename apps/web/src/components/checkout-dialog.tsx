@@ -235,7 +235,7 @@ export function CheckoutDialog({
                 <input
                   ref={cashInputRef}
                   className="cash-received-input"
-                  aria-label="Cash received"
+                  aria-label="Cash received (৳)"
                   type="text"
                   inputMode="decimal"
                   value={tender}

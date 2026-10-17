@@ -18,7 +18,7 @@ function totp(secret: string): string {
 
 async function register(page: Page) {
   const code = randomUUID();
-  const password = `Test-only-${randomUUID()}!`;
+  const password = `Qz9!vL2#${randomUUID()}`;
   await page.goto("/");
   await page
     .getByRole("button", { name: "Create workspace", exact: true })
@@ -274,7 +274,7 @@ test("register organization, create medicine, receive batch, checkout, receipt, 
     .getByRole("button", { name: "Decimal point", exact: true })
     .click();
   await dialog.getByRole("button", { name: "Digit 5", exact: true }).click();
-  await expect(page.getByLabel("Cash received", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("Cash received (৳)", { exact: true })).toHaveValue(
     "20.5",
   );
   await dialog
@@ -364,17 +364,17 @@ test("lost checkout response survives reload and retries without duplicate stock
   await page.getByRole("button", { name: /^Review payment/ }).click();
   await page.getByRole("button", { name: "Exact amount", exact: true }).click();
   await page.getByRole("button", { name: /^Confirm payment/ }).click();
-  await expect(
-    page.getByRole("button", { name: "Confirm pending sale", exact: true }),
-  ).toBeVisible();
+  // Cash checkout is queued durably before its request is sent. A committed
+  // sale with a lost response is reconciled automatically using its key.
+  const continuity = page.getByRole("status", {
+    name: "Connection and sales synchronization",
+  });
+  await expect(continuity).toContainText("1 pending sync");
   await page.reload();
-  await page
-    .getByRole("button", { name: "Confirm pending sale", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Sale complete", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(continuity).toContainText("0 pending sync", { timeout: 20000 });
+  await expect(productButton).toContainText(`${before - 1} available`);
+  // Reloading must never deduct the same sale again.
+  await page.reload();
   await expect(productButton).toContainText(`${before - 1} available`);
 });
 
@@ -435,7 +435,7 @@ test("BOX stock, bKash checkout, branding snapshots, thermal print and Banglades
     .getByRole("button", { name: "View Boxed Gauze", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Configure boxes / strips", exact: true })
+    .getByRole("button", { name: "Configure units", exact: true })
     .click();
   await page.getByLabel("Base units per BOX").fill("10");
   await page
@@ -1071,6 +1071,11 @@ test("unit changes reset quantities and a changed pack price preserves the cart 
     "1",
   );
   await expect(page.locator(".cart-total")).toContainText("৳9.00");
+  // The local subtotal is immediate; the server quote is asynchronous.
+  // Establish a valid original quote before changing the server-side price.
+  await expect(
+    page.getByRole("button", { name: /^Review payment/ }),
+  ).toBeEnabled();
   expect(
     (
       await page.request.put(`/api/v1/catalog/${product.id}/units/`, {

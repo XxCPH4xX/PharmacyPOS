@@ -20,7 +20,7 @@ new Function('require', 'module', 'exports', compiled.outputText)(
   moduleUnderTest,
   moduleUnderTest.exports,
 );
-const { calculateOfflineQuote, validateSyncActor, reservedBaseUnits } = moduleUnderTest.exports;
+const { calculateOfflineQuote, validateSyncActor, reservedBaseUnits, isCorrectableRejection } = moduleUnderTest.exports;
 
 const tax = {
   enabled: true,
@@ -69,8 +69,18 @@ test('queued and review stock remain reserved until sync', () => {
     { status: 'queued', payload },
     { status: 'needs_review', payload },
     { status: 'synced', payload },
+    { status: 'superseded', payload },
   ]);
   assert.equal(used.a, 4);
+});
+
+test('only definitive rejected checkouts can be corrected', () => {
+  const sale = { status: 'needs_review', errorCode: 'price_changed' };
+  assert.equal(isCorrectableRejection(sale), true);
+  assert.equal(isCorrectableRejection({ ...sale, errorCode: 'unit_changed' }), true);
+  assert.equal(isCorrectableRejection({ ...sale, status: 'queued' }), false);
+  assert.equal(isCorrectableRejection({ ...sale, errorCode: 'idempotency_conflict' }), false);
+  assert.equal(isCorrectableRejection({ ...sale, errorCode: undefined }), false);
 });
 
 test('sync requires original authenticated actor, tenant, branch, role and MFA', () => {

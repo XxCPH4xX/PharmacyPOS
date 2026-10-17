@@ -14,3 +14,30 @@
 .pos-continuity-items > div { display:flex; gap:12px; flex-wrap:wrap; align-items:center;
   border-top:1px solid var(--line,#dce6e9); padding:8px 0; }
 .pos-continuity-items small { width:100%; color:#ad422f; }
+/* Keep the sale cart at full viewport height on desktop. The connection
+   indicator occupies only the catalog column instead of reducing both. */
+@media (min-width: 901px) {
+  .pos-workspace .pos-layout {
+    grid-template-rows: auto minmax(0, 1fr);
+    row-gap: 12px;
+  }
+  .pos-workspace .pos-layout > .pos-continuity {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+  .pos-workspace .pos-layout > .pos-products {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .pos-workspace .pos-layout > .cart-panel {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}
+@media (max-width: 900px) {
+  .pos-workspace .pos-layout > .pos-continuity {
+    flex-shrink: 0;
+    margin-bottom: 12px;
+  }
+}

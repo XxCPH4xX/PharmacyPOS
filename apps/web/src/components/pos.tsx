@@ -16,16 +16,16 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { api, ApiError, money, number, toMinor } from "@/lib/api";
+import { api, ApiError, listAll, money, number, toMinor } from "@/lib/api";
 import type { Product, Receipt } from "@/lib/types";
 import { Badge, Button, Empty, Field, Modal } from "./ui";
 import { CustomerPicker } from "./customer-picker";
 import { CheckoutDialog } from "./checkout-dialog";
 import { vatRateLabel } from "./vat-label";
 import "./pos-continuity.css";
-import { calculateOfflineQuote, deviceScope, listCashSales, loadCatalog,
-  reservedBaseUnits, saveCashSale, saveCatalog, synchronizeCashSales,
-  type LocalCashSale, type TaxSnapshot } from "@/lib/pos-continuity";
+import { calculateOfflineQuote, deviceScope, isCorrectableRejection, listCashSales,
+  loadCatalog, reservedBaseUnits, saveCashSale, saveCatalog, supersedeRejectedCashSale,
+  synchronizeCashSales, type LocalCashSale, type TaxSnapshot } from "@/lib/pos-continuity";
 
 import {
   InvoiceCopy,
@@ -185,6 +185,7 @@ export function POS({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewNeeded, setReviewNeeded] = useState(false);
+  const [rejectedSaleId, setRejectedSaleId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [pending, setPending] = useState<PendingSale | null>(null);
   const [localSales, setLocalSales] = useState<LocalCashSale[]>([]);
@@ -195,7 +196,7 @@ export function POS({
   const [snapshotReady, setSnapshotReady] = useState(false);
   const scope = deviceScope(identity, branch);
   const queuedUnits = reservedBaseUnits(localSales);
-  const unresolved = localSales.filter((sale) => sale.status !== "synced");
+  const unresolved = localSales.filter((sale) => sale.status === "queued" || sale.status === "needs_review");
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [mobilePanel, setMobilePanel] = useState("medicines");
@@ -556,6 +557,7 @@ export function POS({
     setQuote(null);
     setPricedSignature("");
     setPaymentOpen(false);
+    setRejectedSaleId(null);
     setPaymentReference("");
     setPaymentConfirmed(false);
     setMethod("cash");
@@ -598,7 +600,7 @@ export function POS({
       if (operation.body.payment_method === "cash") {
         const previous = await listCashSales(identity, branch);
         if (!previous.some((sale) => sale.id === operation.key)) {
-          if (previous.filter((sale) => sale.status !== "synced").length >= 100)
+          if (previous.filter((sale) => sale.status === "queued" || sale.status === "needs_review").length >= 100)
             throw new Error("100 unresolved local sales reached. Reconcile before continuing.");
           if (pricingMode === "offline" && !snapshotReady)
             throw new Error("Offline pricing has not been prepared on this device.");
@@ -638,6 +640,16 @@ export function POS({
           clearAfterCheckout();
           setReceipt(saved.receipt);
           onCompleted();
+        } else if (saved && isCorrectableRejection(saved)) {
+          // A definitive server rejection did NOT record a sale. Keep the
+          // existing cart and require review before generating a new key.
+          setPaymentOpen(false);
+          setRejectedSaleId(saved.id);
+          setReviewNeeded(true);
+          setError(saved.error);
+          setQuote(null);
+          setPricedSignature("");
+          onCompleted(); // Refresh product and package prices in the workspace.
         } else {
           clearAfterCheckout();
           setQueueWarning(saved?.status === "needs_review"
@@ -731,44 +743,44 @@ export function POS({
           Current sale ({cart.length}) · {money(total)}
         </button>
       </div>
-      <section className="pos-continuity" aria-label="Connection and sales synchronization" role="status">
-        <div className="pos-continuity-heading">
-          <span className={`pos-continuity-indicator ${pricingMode === "offline" ? "disconnected" : ""}`} />
-          <strong>{pricingMode === "offline" ? "Offline — cached prices" : "Connected POS"}</strong>
-          <span>{unresolved.filter((sale) => sale.status === "queued").length} pending sync</span>
-          <span>{unresolved.filter((sale) => sale.status === "needs_review").length} need review</span>
-          <button type="button" disabled={syncingQueue || !unresolved.length}
-            onClick={async () => {
-              setSyncingQueue(true);
-              try {
-                const result = await synchronizeCashSales(identity, branch);
-                setLocalSales(await listCashSales(identity, branch));
-                if (result.synced) onCompleted();
-              } catch (err) { setQueueWarning((err as Error).message); }
-              finally { setSyncingQueue(false); }
-            }}>
-            {syncingQueue ? "Syncing…" : "Sync now"}
-          </button>
-        </div>
-        {pricingMode === "offline" && (
-          <p>Cash base-unit sales can be queued with estimated VAT. Final receipts and stock changes require server confirmation.</p>
-        )}
-        {queueWarning && <p role="alert">{queueWarning}</p>}
-        {unresolved.length > 0 && (
-          <details className="pos-continuity-items">
-            <summary>View {unresolved.length} locally saved sale(s)</summary>
-            {unresolved.slice(0, 20).map((sale) => (
-              <div key={sale.id}>
-                <span>{new Date(sale.createdAt).toLocaleString()} · {sale.id.slice(0, 8)}</span>
-                <strong>{sale.status === "needs_review" ? "Needs manual review" : "Pending sync"}</strong>
-                <span>{money(sale.payload.expected_total_minor || 0)}</span>
-                {sale.error && <small>{sale.error}</small>}
-              </div>
-            ))}
-          </details>
-        )}
-      </section>
       <div className={`pos-layout pos-view-${mobilePanel}`}>
+        <section className="pos-continuity" aria-label="Connection and sales synchronization" role="status">
+          <div className="pos-continuity-heading">
+            <span className={`pos-continuity-indicator ${pricingMode === "offline" ? "disconnected" : ""}`} />
+            <strong>{pricingMode === "offline" ? "Offline — cached prices" : "Connected POS"}</strong>
+            <span>{unresolved.filter((sale) => sale.status === "queued").length} pending sync</span>
+            <span>{unresolved.filter((sale) => sale.status === "needs_review").length} need review</span>
+            <button type="button" disabled={syncingQueue || !unresolved.length}
+              onClick={async () => {
+                setSyncingQueue(true);
+                try {
+                  const result = await synchronizeCashSales(identity, branch);
+                  setLocalSales(await listCashSales(identity, branch));
+                  if (result.synced) onCompleted();
+                } catch (err) { setQueueWarning((err as Error).message); }
+                finally { setSyncingQueue(false); }
+              }}>
+              {syncingQueue ? "Syncing…" : "Sync now"}
+            </button>
+          </div>
+          {pricingMode === "offline" && (
+            <p>Cash base-unit sales can be queued with estimated VAT. Final receipts and stock changes require server confirmation.</p>
+          )}
+          {queueWarning && <p role="alert">{queueWarning}</p>}
+          {unresolved.length > 0 && (
+            <details className="pos-continuity-items">
+              <summary>View {unresolved.length} locally saved sale(s)</summary>
+              {unresolved.slice(0, 20).map((sale) => (
+                <div key={sale.id}>
+                  <span>{new Date(sale.createdAt).toLocaleString()} · {sale.id.slice(0, 8)}</span>
+                  <strong>{sale.status === "needs_review" ? "Needs manual review" : "Pending sync"}</strong>
+                  <span>{money(sale.payload.expected_total_minor || 0)}</span>
+                  {sale.error && <small>{sale.error}</small>}
+                </div>
+              ))}
+            </details>
+          )}
+        </section>
         <section className="pos-products">
           <div className="panel pos-search-panel">
             <label className="search-box pos-search">
@@ -1188,12 +1200,23 @@ export function POS({
               <Button
                 variant="secondary"
                 className="full-width"
-                onClick={() => {
-                  setCart((items) =>
-                    items.map((line) => {
-                      const product = products.find(
-                        (p) => p.id === line.product.id,
-                      );
+                onClick={async () => {
+                  try {
+                    // Read live catalog prices before retiring the rejected
+                    // attempt. Never replace a sale with uncertain outcome.
+                    const latest = rejectedSaleId
+                      ? await listAll<Product>("catalog/", branch)
+                      : products;
+                    if (rejectedSaleId) {
+                      await supersedeRejectedCashSale(identity, branch, rejectedSaleId);
+                      setLocalSales(await listCashSales(identity, branch));
+                      setRejectedSaleId(null);
+                    }
+                    setCart((items) =>
+                      items.map((line) => {
+                        const product = latest.find(
+                          (p) => p.id === line.product.id,
+                        );
                       if (!product)
                         return {
                           ...line,
@@ -1210,11 +1233,14 @@ export function POS({
                       )
                         ? line.unitId
                         : undefined;
-                      return { ...line, product, unitId };
-                    }),
-                  );
-                  setReviewNeeded(false);
-                  setError("");
+                        return { ...line, product, unitId };
+                      }),
+                    );
+                    setReviewNeeded(false);
+                    setError("");
+                  } catch (caught) {
+                    setError((caught as Error).message);
+                  }
                 }}
               >
                 Review updated prices & stock
