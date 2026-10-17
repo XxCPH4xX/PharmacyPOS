@@ -94,6 +94,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 SPECTACULAR_SETTINGS = {
+    "ENUM_NAME_OVERRIDES": {"VatPricingModeEnum": ["inclusive", "exclusive"]},
     "TITLE": "PharmaCore API",
     "VERSION": "0.1.0",
     "DESCRIPTION": "Online pilot. Cash and staff-confirmed bKash/Nagad records; no live payment gateway. Prices are integer paisa. X-Branch-ID selects an authorized branch. Idempotency-Key is required for receiving and checkout.",
