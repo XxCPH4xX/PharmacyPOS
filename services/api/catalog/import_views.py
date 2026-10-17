@@ -5,6 +5,9 @@ from decimal import Decimal, InvalidOperation
 
 from django.core import signing
 from django.db import transaction
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -187,7 +190,16 @@ def read_import(text, tenant):
     return records, valid_products
 
 
+class ImportPreviewInput(serializers.Serializer):
+    csv_text = serializers.CharField()
+
+
+class ImportCommitInput(ImportPreviewInput):
+    preview_token = serializers.CharField()
+
+
 class MedicineImportPreviewView(APIView):
+    @extend_schema(request=ImportPreviewInput, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         scope = scope_for(request, "manage")
 
@@ -220,6 +232,7 @@ class MedicineImportPreviewView(APIView):
 
 
 class MedicineImportCommitView(APIView):
+    @extend_schema(request=ImportCommitInput, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         scope = scope_for(request, "manage")
 

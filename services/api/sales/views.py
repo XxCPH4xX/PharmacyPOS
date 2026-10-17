@@ -32,6 +32,7 @@ class QuoteInput(StrictSerializer):
 
 
 class QuoteView(APIView):
+    @extend_schema(request=QuoteInput, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         scope = scope_for(request, "sell")
         serializer = QuoteInput(data=request.data)

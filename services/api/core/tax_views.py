@@ -1,4 +1,5 @@
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,10 +12,12 @@ from core.tax import TaxConfigInput, config_for
 
 
 class TaxSettingsView(APIView):
+    @extend_schema(responses=TaxConfigInput)
     def get(self, request):
         scope = scope_for(request, "read")
         return Response(config_for(scope.tenant))
 
+    @extend_schema(request=TaxConfigInput, responses=TaxConfigInput)
     @transaction.atomic
     def put(self, request):
         scope = scope_for(request, "owner")
