@@ -674,6 +674,7 @@ function WorkspaceInner() {
                   branch={branch}
                   onCompleted={refresh}
                   notify={setToast}
+                  canOverrideDiscount={roles.some((r) => r === "owner" || r === "manager")}
                 />
               )}
               {section === "sales" && (

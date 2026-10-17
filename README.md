@@ -187,3 +187,20 @@ Owner-only VAT settings, medicine exemptions and custom rates, inclusive/exclusi
 ## Offline register (provisional orders)
 
 For a disconnected browser, first prepare the dedicated [offline register](apps/web/public/offline-register.html) while signed in and online. It encrypts short-lived medicine/VAT snapshots and provisional cash orders on the device, then synchronizes them via the existing idempotent checkout when connectivity returns. **Unsynced orders are not completed sales and cannot be used as final invoices.** See [offline register operations and limitations](docs/operations/offline-register.md).
+
+## Checkout discount authorization
+
+Cashiers can use the owner-configured default percentage discount but cannot
+invent a different percentage or a fixed extra discount. Both quote and
+checkout enforce this rule on the API, not just in the interface. A manager or
+owner can authorize custom discounts by performing the checkout with their own
+privileged session. The current UI does not support delegated per-sale approval;
+do not share manager credentials with cashiers.
+
+## Production release remains gated
+
+Development readiness is not deployment approval. Do not bypass the non-debug
+launch gate for live stores before passing the complete CI pipeline, supervised
+end-to-end inventory/payment tests, regulatory/tax review, secure deployment,
+recovery drills, POS hardware testing, and independent security review.
+The offline register is provisional and is not a full local-first ERP.

@@ -5,6 +5,9 @@ from decimal import Decimal, InvalidOperation
 
 from django.core import signing
 from django.db import transaction
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,7 +16,6 @@ from catalog.models import TenantProduct
 from catalog.services import create_product
 from core.access import scope_for
 from core.serializers import ProductInput
-
 
 COLUMNS = [
     "name",
@@ -188,7 +190,16 @@ def read_import(text, tenant):
     return records, valid_products
 
 
+class ImportPreviewInput(serializers.Serializer):
+    csv_text = serializers.CharField()
+
+
+class ImportCommitInput(ImportPreviewInput):
+    preview_token = serializers.CharField()
+
+
 class MedicineImportPreviewView(APIView):
+    @extend_schema(request=ImportPreviewInput, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         scope = scope_for(request, "manage")
 
@@ -221,6 +232,7 @@ class MedicineImportPreviewView(APIView):
 
 
 class MedicineImportCommitView(APIView):
+    @extend_schema(request=ImportCommitInput, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         scope = scope_for(request, "manage")
 
@@ -251,9 +263,7 @@ class MedicineImportCommitView(APIView):
             )
 
             if len(records) != len(valid):
-                raise ValidationError(
-                    "Some records are invalid. Correct the CSV and preview it again."
-                )
+                raise ValidationError("Some records are invalid. Correct the CSV and preview it again.")
 
             for product in valid:
                 create_product(

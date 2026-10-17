@@ -141,7 +141,10 @@ def test_evidence_is_immutable(scope, cart, stock):
 
 
 def test_balance_cannot_be_edited_directly(scope, stock):
-    with pytest.raises(IntegrityError, match="does not match ledger|batch_physical_quantity_balanced"), transaction.atomic():
+    with (
+        pytest.raises(IntegrityError, match="does not match ledger|batch_physical_quantity_balanced"),
+        transaction.atomic(),
+    ):
         Batch.objects.update(quantity=999)
         with connection.cursor() as cursor:
             cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")

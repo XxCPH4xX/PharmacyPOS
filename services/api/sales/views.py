@@ -4,17 +4,17 @@ import io
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from catalog.models import ProductUnit, TenantProduct
 from catalog.views import Pagination
 from core.access import scope_for
 from core.operations import audit
-from core.serializers import CheckoutInput, StrictSerializer, CartLineInput
-from core.tax import calculate, config_for
-from catalog.models import TenantProduct, ProductUnit
-from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from core.serializers import CartLineInput, CheckoutInput, StrictSerializer
+from core.tax import calculate, config_for, enforce_discount_policy
 from sales.models import Sale
 from sales.services import checkout, receipt_data
 
@@ -30,7 +30,9 @@ class QuoteInput(StrictSerializer):
             raise ValidationError("Combine duplicate medicines first.")
         return lines
 
+
 class QuoteView(APIView):
+    @extend_schema(request=QuoteInput, responses=OpenApiTypes.OBJECT)
     def post(self, request):
         scope = scope_for(request, "sell")
         serializer = QuoteInput(data=request.data)
@@ -38,27 +40,35 @@ class QuoteView(APIView):
         entries = serializer.validated_data
         lines = []
         for entry in entries["lines"]:
-            item = TenantProduct.objects.filter(id=entry["product_id"], tenant=scope.tenant, active=True).first()
+            item = TenantProduct.objects.filter(
+                id=entry["product_id"], tenant=scope.tenant, active=True
+            ).first()
             if not item or item.price_minor != entry["expected_price_minor"]:
                 raise ValidationError("Medicine price changed. Refresh the sale.")
             multiplier = 1
             price = item.price_minor
             if entry.get("unit_id"):
-                unit = ProductUnit.objects.filter(id=entry["unit_id"], product=item, tenant=scope.tenant, active=True).first()
+                unit = ProductUnit.objects.filter(
+                    id=entry["unit_id"], product=item, tenant=scope.tenant, active=True
+                ).first()
                 if not unit:
                     raise ValidationError("Selling unit changed. Refresh the sale.")
                 multiplier = unit.base_units
                 price = unit.price_minor if unit.price_minor is not None else item.price_minor * multiplier
-            if multiplier != entry.get("expected_base_units", 1) or price != entry.get("expected_unit_price_minor", item.price_minor * multiplier):
+            if multiplier != entry.get("expected_base_units", 1) or price != entry.get(
+                "expected_unit_price_minor", item.price_minor * multiplier
+            ):
                 raise ValidationError("Package price changed. Refresh the sale.")
             lines.append({"product_id": item.id, "amount_minor": price * entry["quantity"]})
         try:
             configuration = config_for(scope.tenant)
+            enforce_discount_policy(scope, configuration, entries["discount_type"], entries["discount_value"])
             result = calculate(lines, configuration, entries["discount_type"], entries["discount_value"])
             result["settings_version"] = configuration["version"]
         except ValueError as exc:
             raise ValidationError(str(exc)) from None
         return Response(result)
+
 
 class CheckoutView(APIView):
     @extend_schema(
@@ -131,7 +141,18 @@ class SalesExportView(APIView):
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["Receipt", "Created (UTC)", "Branch", "Cashier", "Revenue (paisa)", "COGS (paisa)", "Payment", "Subtotal (paisa)", "Discount (paisa)", "VAT (paisa)"]
+            [
+                "Receipt",
+                "Created (UTC)",
+                "Branch",
+                "Cashier",
+                "Revenue (paisa)",
+                "COGS (paisa)",
+                "Payment",
+                "Subtotal (paisa)",
+                "Discount (paisa)",
+                "VAT (paisa)",
+            ]
         )
         for sale in visible_sales(scope).iterator(chunk_size=500):
             writer.writerow(

@@ -71,7 +71,9 @@ class StockMovement(ScopedEntity):
     batch = models.ForeignKey(Batch, on_delete=models.PROTECT, related_name="movements")
     product = models.ForeignKey(TenantProduct, on_delete=models.PROTECT)
     quantity = models.IntegerField()
-    kind = models.CharField(max_length=16, choices=[("receipt", "Receipt"), ("sale", "Sale"), ("removal", "Removal")])
+    kind = models.CharField(
+        max_length=16, choices=[("receipt", "Receipt"), ("sale", "Sale"), ("removal", "Removal")]
+    )
     source_id = models.UUIDField()
     reference = models.CharField(max_length=80)
 

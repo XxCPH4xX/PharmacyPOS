@@ -2,13 +2,14 @@ import uuid
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from catalog.models import ProductUnit, TenantProduct
-from core.tax import calculate, config_for
 from core.errors import BusinessError
 from core.models import Customer
 from core.operations import audit, complete_operation, lock_operation
 from core.receipts import amount_words, profile_snapshot
+from core.tax import calculate, config_for, enforce_discount_policy
 from inventory.models import Batch, StockMovement
 from inventory.packaging import available_packages, consume_packages, physical_counts, record_packages
 from sales.models import Payment, Sale, SaleItem, SaleLine
@@ -114,8 +115,20 @@ def receipt_data(sale):
 @transaction.atomic
 def _checkout(scope, data, key, *, occurred_at=None):
     scope.require("sell")
+    # A legacy pending checkout can omit the two optional discount fields.
+    # Normalize before hashing so API serializer defaults do not change its key.
+    data = {"discount_type": "none", "discount_value": 0, **data}
     fingerprint, prior = lock_operation(scope, "checkout", key, data)
     if prior is not None:
+        prior_sale = (
+            Sale.objects.filter(id=prior.get("id"), tenant=scope.tenant, branch=scope.branch)
+            .only("cashier_id")
+            .first()
+        )
+        if prior_sale is None or (
+            prior_sale.cashier_id != scope.user.id and not scope.has_role("owner", "manager")
+        ):
+            raise PermissionDenied("This checkout belongs to another cashier.")
         return prior
     customer = None
     customer_snapshot = {
@@ -231,12 +244,20 @@ def _checkout(scope, data, key, *, occurred_at=None):
     if total > 1000000000000:
         raise BusinessError("Sale total exceeds the supported limit.", "amount_limit", 400)
     configuration = config_for(scope.tenant)
-    if data.get("expected_tax_version") is not None and data["expected_tax_version"] != configuration["version"]:
+    enforce_discount_policy(
+        scope, configuration, data.get("discount_type", "none"), data.get("discount_value", 0)
+    )
+    if (
+        data.get("expected_tax_version") is not None
+        and data["expected_tax_version"] != configuration["version"]
+    ):
         raise BusinessError("VAT settings changed. Review this sale.", "tax_settings_changed", 409)
     try:
         prices = calculate(
-            [{"product_id": product_id, "amount_minor": info["quantity"] * info["unit_price_minor"]}
-             for product_id, info in cart_items.items()],
+            [
+                {"product_id": product_id, "amount_minor": info["quantity"] * info["unit_price_minor"]}
+                for product_id, info in cart_items.items()
+            ],
             configuration,
             data.get("discount_type", "none"),
             data.get("discount_value", 0),
@@ -338,9 +359,13 @@ def _checkout(scope, data, key, *, occurred_at=None):
         scope,
         "sale.completed",
         sale.id,
-        {"receipt": sale.receipt_number, "total_minor": total,
-         "discount_minor": prices["discount_minor"], "vat_minor": prices["vat_minor"],
-         "payment_method": method},
+        {
+            "receipt": sale.receipt_number,
+            "total_minor": total,
+            "discount_minor": prices["discount_minor"],
+            "vat_minor": prices["vat_minor"],
+            "payment_method": method,
+        },
     )
     return complete_operation(scope, "checkout", key, fingerprint, receipt_data(sale))
 

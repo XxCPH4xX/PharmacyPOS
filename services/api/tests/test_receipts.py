@@ -208,3 +208,26 @@ def test_print_names_use_configured_defaults(scope, stock, cart):
     result = checkout(scope, cart, "default-names")
     assert result["staff_name"] == "Shop staff"
     assert result["created_by"] == "Shop creator"
+
+
+def test_other_cashier_cannot_replay_completed_checkout(client, scope, stock, cart):
+    from django.contrib.auth import get_user_model
+
+    from core.models import Membership
+
+    checkout(scope, cart, "owned-sale-key")
+    other = get_user_model().objects.create_user(
+        username="other@example.test",
+        email="other@example.test",
+        password="Safe-password-1834!",
+    )
+    Membership.objects.create(tenant=scope.tenant, user=other, role="cashier")
+    client.force_login(other)
+    session = client.session
+    session["tenant_id"] = str(scope.tenant.id)
+    session.save()
+    response = client.post(
+        "/api/v1/sales/checkout/", cart, format="json", HTTP_IDEMPOTENCY_KEY="owned-sale-key"
+    )
+    assert response.status_code == 403
+    assert Sale.objects.count() == 1

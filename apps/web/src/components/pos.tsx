@@ -143,12 +143,14 @@ export function POS({
   branch,
   onCompleted,
   notify,
+  canOverrideDiscount = false,
 }: {
   identity: string;
   products: Product[];
   branch: string;
   onCompleted: () => void;
   notify: (message: string) => void;
+  canOverrideDiscount?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All medicines");
@@ -374,7 +376,7 @@ export function POS({
     0,
   );
   function toggleDiscountEditor(mode: "fixed" | "percent") {
-    if (busy || pending) return;
+    if (busy || pending || !canOverrideDiscount) return;
     if (discountEditor === mode) {
       setDiscountEditor(null);
       return;
@@ -391,7 +393,7 @@ export function POS({
   }
   function applyDiscount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || pending || !discountEditor) return;
+    if (busy || pending || !canOverrideDiscount || !discountEditor) return;
     const raw = draftDiscountValue.trim();
     if (!/^\d{1,10}(\.\d{0,2})?$/.test(raw)) {
       setDiscountInputError("Enter a valid amount (up to two decimal places).");
@@ -1088,7 +1090,8 @@ export function POS({
                 onClick={() => toggleDiscountEditor("percent")}
                 aria-expanded={discountEditor === "percent"}
                 aria-controls="pos-product-discount-entry"
-                disabled={busy || !!pending}
+                disabled={busy || !!pending || !canOverrideDiscount}
+                title={!canOverrideDiscount ? "Manager approval required to change the default discount" : undefined}
               >
                 <span className="pos-discount-percent-icon" aria-hidden="true">%</span>
                 Product discount
@@ -1131,7 +1134,8 @@ export function POS({
                 onClick={() => toggleDiscountEditor("fixed")}
                 aria-expanded={discountEditor === "fixed"}
                 aria-controls="pos-extra-discount-entry"
-                disabled={busy || !!pending}
+                disabled={busy || !!pending || !canOverrideDiscount}
+                title={!canOverrideDiscount ? "Manager approval required for extra discounts" : undefined}
               >
                 Extra discount
               </button>
