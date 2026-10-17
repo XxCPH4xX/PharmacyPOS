@@ -9,6 +9,7 @@ from core.models import Tenant
 from core.operations import audit
 from core.tax import TaxConfigInput, config_for
 
+
 class TaxSettingsView(APIView):
     def get(self, request):
         scope = scope_for(request, "read")
