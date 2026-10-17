@@ -27,9 +27,14 @@ class TaxSettingsView(APIView):
             raise ValidationError({"version": "Settings changed. Reload before saving."})
         ids = {r["product_id"] for r in payload["rules"]}
         if TenantProduct.objects.filter(id__in=ids, tenant=tenant, active=True).count() != len(ids):
-            raise ValidationError({"rules": "One or more medicines are invalid or not part of this workspace."})
-        updated = {**payload, "rules": [{**r, "product_id": str(r["product_id"])} for r in payload["rules"]],
-                   "version": previous["version"] + 1}
+            raise ValidationError(
+                {"rules": "One or more medicines are invalid or not part of this workspace."}
+            )
+        updated = {
+            **payload,
+            "rules": [{**r, "product_id": str(r["product_id"])} for r in payload["rules"]],
+            "version": previous["version"] + 1,
+        }
         tenant.tax_config = updated
         tenant.save(update_fields=["tax_config"])
         audit(scope, "tax.settings_updated", tenant.id, {"before": previous, "after": updated})

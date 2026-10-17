@@ -38,18 +38,24 @@ class QuoteView(APIView):
         entries = serializer.validated_data
         lines = []
         for entry in entries["lines"]:
-            item = TenantProduct.objects.filter(id=entry["product_id"], tenant=scope.tenant, active=True).first()
+            item = TenantProduct.objects.filter(
+                id=entry["product_id"], tenant=scope.tenant, active=True
+            ).first()
             if not item or item.price_minor != entry["expected_price_minor"]:
                 raise ValidationError("Medicine price changed. Refresh the sale.")
             multiplier = 1
             price = item.price_minor
             if entry.get("unit_id"):
-                unit = ProductUnit.objects.filter(id=entry["unit_id"], product=item, tenant=scope.tenant, active=True).first()
+                unit = ProductUnit.objects.filter(
+                    id=entry["unit_id"], product=item, tenant=scope.tenant, active=True
+                ).first()
                 if not unit:
                     raise ValidationError("Selling unit changed. Refresh the sale.")
                 multiplier = unit.base_units
                 price = unit.price_minor if unit.price_minor is not None else item.price_minor * multiplier
-            if multiplier != entry.get("expected_base_units", 1) or price != entry.get("expected_unit_price_minor", item.price_minor * multiplier):
+            if multiplier != entry.get("expected_base_units", 1) or price != entry.get(
+                "expected_unit_price_minor", item.price_minor * multiplier
+            ):
                 raise ValidationError("Package price changed. Refresh the sale.")
             lines.append({"product_id": item.id, "amount_minor": price * entry["quantity"]})
         try:
@@ -132,7 +138,18 @@ class SalesExportView(APIView):
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["Receipt", "Created (UTC)", "Branch", "Cashier", "Revenue (paisa)", "COGS (paisa)", "Payment", "Subtotal (paisa)", "Discount (paisa)", "VAT (paisa)"]
+            [
+                "Receipt",
+                "Created (UTC)",
+                "Branch",
+                "Cashier",
+                "Revenue (paisa)",
+                "COGS (paisa)",
+                "Payment",
+                "Subtotal (paisa)",
+                "Discount (paisa)",
+                "VAT (paisa)",
+            ]
         )
         for sale in visible_sales(scope).iterator(chunk_size=500):
             writer.writerow(

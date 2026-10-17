@@ -231,13 +231,20 @@ def _checkout(scope, data, key, *, occurred_at=None):
     if total > 1000000000000:
         raise BusinessError("Sale total exceeds the supported limit.", "amount_limit", 400)
     configuration = config_for(scope.tenant)
-    enforce_discount_policy(scope, configuration, data.get("discount_type", "none"), data.get("discount_value", 0))
-    if data.get("expected_tax_version") is not None and data["expected_tax_version"] != configuration["version"]:
+    enforce_discount_policy(
+        scope, configuration, data.get("discount_type", "none"), data.get("discount_value", 0)
+    )
+    if (
+        data.get("expected_tax_version") is not None
+        and data["expected_tax_version"] != configuration["version"]
+    ):
         raise BusinessError("VAT settings changed. Review this sale.", "tax_settings_changed", 409)
     try:
         prices = calculate(
-            [{"product_id": product_id, "amount_minor": info["quantity"] * info["unit_price_minor"]}
-             for product_id, info in cart_items.items()],
+            [
+                {"product_id": product_id, "amount_minor": info["quantity"] * info["unit_price_minor"]}
+                for product_id, info in cart_items.items()
+            ],
             configuration,
             data.get("discount_type", "none"),
             data.get("discount_value", 0),
@@ -339,9 +346,13 @@ def _checkout(scope, data, key, *, occurred_at=None):
         scope,
         "sale.completed",
         sale.id,
-        {"receipt": sale.receipt_number, "total_minor": total,
-         "discount_minor": prices["discount_minor"], "vat_minor": prices["vat_minor"],
-         "payment_method": method},
+        {
+            "receipt": sale.receipt_number,
+            "total_minor": total,
+            "discount_minor": prices["discount_minor"],
+            "vat_minor": prices["vat_minor"],
+            "payment_method": method,
+        },
     )
     return complete_operation(scope, "checkout", key, fingerprint, receipt_data(sale))
 

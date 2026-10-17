@@ -250,9 +250,7 @@ class MedicineImportCommitView(APIView):
             )
 
             if len(records) != len(valid):
-                raise ValidationError(
-                    "Some records are invalid. Correct the CSV and preview it again."
-                )
+                raise ValidationError("Some records are invalid. Correct the CSV and preview it again.")
 
             for product in valid:
                 create_product(

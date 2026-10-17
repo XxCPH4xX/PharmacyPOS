@@ -16,7 +16,9 @@ class Entity(models.Model):
 
 class Tenant(Entity):
     archived_at = models.DateTimeField(null=True, blank=True)
-    replaces = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="replacement")
+    replaces = models.OneToOneField(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="replacement"
+    )
     version = models.PositiveIntegerField(default=1)
     name = models.CharField(max_length=150)
     active = models.BooleanField(default=True)

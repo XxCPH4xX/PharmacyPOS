@@ -19,7 +19,9 @@ class TaxConfigInput(StrictSerializer):
     default_rate_bps = serializers.IntegerField(min_value=0, max_value=MAX_RATE)
     default_mode = serializers.ChoiceField(choices=["inclusive", "exclusive"])
     rules = ProductRule(many=True, max_length=2000)
-    default_product_discount_bps = serializers.IntegerField(min_value=0, max_value=MAX_RATE, required=False, default=0)
+    default_product_discount_bps = serializers.IntegerField(
+        min_value=0, max_value=MAX_RATE, required=False, default=0
+    )
     version = serializers.IntegerField(min_value=0)
 
     def validate_rules(self, rules):
@@ -31,9 +33,15 @@ class TaxConfigInput(StrictSerializer):
                 raise serializers.ValidationError("Taxable overrides require a VAT rate.")
         return rules
 
-DEFAULT = {"enabled": False, "default_rate_bps": 0, "default_mode": "exclusive", "rules": [],
-           "default_product_discount_bps": 0, "version": 0}
 
+DEFAULT = {
+    "enabled": False,
+    "default_rate_bps": 0,
+    "default_mode": "exclusive",
+    "rules": [],
+    "default_product_discount_bps": 0,
+    "version": 0,
+}
 def config_for(tenant):
     return {**DEFAULT, **(tenant.tax_config or {})}
 
@@ -71,7 +79,11 @@ def calculate(lines, configuration, discount_type="none", discount_value=0):
     # An explicit fixed or percentage discount overrides it only for that sale.
     if discount_type == "none" and discount_value == 0:
         default_bps = configuration.get("default_product_discount_bps", 0)
-        if not isinstance(default_bps, int) or isinstance(default_bps, bool) or not 0 <= default_bps <= MAX_RATE:
+        if (
+            not isinstance(default_bps, int)
+            or isinstance(default_bps, bool)
+            or not 0 <= default_bps <= MAX_RATE
+        ):
             raise ValueError("Invalid default product discount")
         if default_bps:
             discount_type, discount_value = "percent", default_bps
@@ -105,19 +117,40 @@ def calculate(lines, configuration, discount_type="none", discount_value=0):
         amount = line["amount_minor"] - reduction
         rule = rules.get(str(line["product_id"]), {})
         treatment = rule.get("treatment", "default")
-        rate = (rule.get("rate_bps", configuration.get("default_rate_bps", 0))
-                if treatment == "taxable" else configuration.get("default_rate_bps", 0))
+        rate = (
+            rule.get("rate_bps", configuration.get("default_rate_bps", 0))
+            if treatment == "taxable"
+            else configuration.get("default_rate_bps", 0)
+        )
         if treatment == "exempt" or not configuration.get("enabled", False):
             rate = 0
         mode = rule.get("mode", configuration.get("default_mode", "exclusive"))
-        vat = round_minor(Decimal(amount) * rate / (10000 + rate if mode == "inclusive" else 10000)) if rate else 0
+        vat = (
+            round_minor(Decimal(amount) * rate / (10000 + rate if mode == "inclusive" else 10000))
+            if rate
+            else 0
+        )
         additional = vat if mode == "exclusive" else 0
         vat_total += vat
         extra_vat += additional
-        results.append({"product_id": str(line["product_id"]), "subtotal_minor": line["amount_minor"],
-                        "discount_minor": reduction, "vat_minor": vat, "rate_bps": rate,
-                        "mode": mode, "treatment": treatment, "total_minor": amount + additional})
-    return {"subtotal_minor": subtotal, "discount_minor": discount, "vat_minor": vat_total,
-            "total_minor": subtotal - discount + extra_vat,
-            "discount_type": discount_type, "discount_value": discount_value,
-            "lines": results}
+        results.append(
+            {
+                "product_id": str(line["product_id"]),
+                "subtotal_minor": line["amount_minor"],
+                "discount_minor": reduction,
+                "vat_minor": vat,
+                "rate_bps": rate,
+                "mode": mode,
+                "treatment": treatment,
+                "total_minor": amount + additional,
+            }
+        )
+    return {
+        "subtotal_minor": subtotal,
+        "discount_minor": discount,
+        "vat_minor": vat_total,
+        "total_minor": subtotal - discount + extra_vat,
+        "discount_type": discount_type,
+        "discount_value": discount_value,
+        "lines": results,
+    }
