@@ -4,6 +4,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from catalog.models import ProductUnit, TenantProduct
+from core.tax import calculate, config_for
 from core.errors import BusinessError
 from core.models import Customer
 from core.operations import audit, complete_operation, lock_operation
@@ -64,6 +65,13 @@ def receipt_data(sale):
                     ],
                 }
             )
+    snapshots = {entry["product_id"]: entry for entry in sale.tax_snapshot.get("lines", [])}
+    for line in lines:
+        snapshot = snapshots.get(line["product_id"], {})
+        line["discount_minor"] = snapshot.get("discount_minor", 0)
+        line["vat_minor"] = snapshot.get("vat_minor", 0)
+        line["vat_rate_bps"] = snapshot.get("rate_bps", 0)
+        line["vat_mode"] = snapshot.get("mode", "exclusive")
     return {
         "id": str(sale.id),
         "receipt_number": sale.receipt_number,
@@ -79,6 +87,10 @@ def receipt_data(sale):
         or sale.cashier.first_name
         or sale.cashier.username,
         "total_minor": sale.total_minor,
+        "subtotal_minor": sale.subtotal_minor or (sale.total_minor if not sale.tax_snapshot else 0),
+        "discount_minor": sale.discount_minor,
+        "vat_minor": sale.vat_minor,
+        "tax_snapshot": sale.tax_snapshot,
         "tendered_minor": sale.tendered_minor,
         "change_minor": sale.tendered_minor - sale.total_minor,
         "payment_method": sale.payment.method,
@@ -94,7 +106,7 @@ def receipt_data(sale):
         "remarks": sale.remarks,
         "receipt_profile": sale.receipt_profile,
         "amount_in_words": amount_words(sale.total_minor),
-        "tax_status": "not_calculated",
+        "tax_status": "calculated" if sale.tax_snapshot.get("enabled", False) else "not_calculated",
         "lines": lines,
     }
 
@@ -218,6 +230,28 @@ def _checkout(scope, data, key, *, occurred_at=None):
             )
     if total > 1000000000000:
         raise BusinessError("Sale total exceeds the supported limit.", "amount_limit", 400)
+    configuration = config_for(scope.tenant)
+    if data.get("expected_tax_version") is not None and data["expected_tax_version"] != configuration["version"]:
+        raise BusinessError("VAT settings changed. Review this sale.", "tax_settings_changed", 409)
+    try:
+        prices = calculate(
+            [{"product_id": product_id, "amount_minor": info["quantity"] * info["unit_price_minor"]}
+             for product_id, info in cart_items.items()],
+            configuration,
+            data.get("discount_type", "none"),
+            data.get("discount_value", 0),
+        )
+    except ValueError as exc:
+        raise BusinessError(str(exc), "discount_invalid", 400) from None
+    prices["enabled"] = configuration.get("enabled", False)
+    prices["settings_version"] = configuration["version"]
+    if prices["subtotal_minor"] != total:
+        raise BusinessError("Sale subtotal mismatch.", "subtotal_changed", 409)
+    total = prices["total_minor"]
+    if total > 1000000000000:
+        raise BusinessError("Sale total exceeds the supported limit.", "amount_limit", 400)
+    if data.get("expected_total_minor") is not None and data["expected_total_minor"] != total:
+        raise BusinessError("Tax or discount settings changed. Review the new total.", "total_changed", 409)
     tendered = data["tendered_minor"] if method == "cash" else total
     if tendered < total:
         raise BusinessError("Cash received must cover the sale total.", "insufficient_tender", 400)
@@ -239,6 +273,10 @@ def _checkout(scope, data, key, *, occurred_at=None):
         cashier=scope.user,
         receipt_number=f"PC-{timezone.localtime(when):%y%m%d}-{sale_id.hex[:12].upper()}",
         total_minor=total,
+        subtotal_minor=prices["subtotal_minor"],
+        discount_minor=prices["discount_minor"],
+        vat_minor=prices["vat_minor"],
+        tax_snapshot=prices,
         cost_minor=cost,
         tendered_minor=tendered,
         receipt_profile=printing,
@@ -300,7 +338,9 @@ def _checkout(scope, data, key, *, occurred_at=None):
         scope,
         "sale.completed",
         sale.id,
-        {"receipt": sale.receipt_number, "total_minor": total, "payment_method": method},
+        {"receipt": sale.receipt_number, "total_minor": total,
+         "discount_minor": prices["discount_minor"], "vat_minor": prices["vat_minor"],
+         "payment_method": method},
     )
     return complete_operation(scope, "checkout", key, fingerprint, receipt_data(sale))
 

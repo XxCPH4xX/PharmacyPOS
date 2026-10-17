@@ -114,7 +114,23 @@ export interface SaleSummary {
   payment_method: string;
   status: string;
 }
+export interface SaleQuote {
+  settings_version: number;
+  subtotal_minor: number;
+  discount_minor: number;
+  vat_minor: number;
+  total_minor: number;
+  discount_type: "none" | "fixed" | "percent";
+  discount_value: number;
+  lines: { product_id: string; subtotal_minor: number; discount_minor: number;
+    vat_minor: number; rate_bps: number; mode: "inclusive" | "exclusive";
+    treatment: string; total_minor: number }[];
+}
 export interface Receipt extends SaleSummary {
+  subtotal_minor?: number;
+  discount_minor?: number;
+  vat_minor?: number;
+  tax_snapshot?: Partial<SaleQuote>;
   branch: string;
   address: string;
   organization: string;
@@ -141,6 +157,10 @@ export interface Receipt extends SaleSummary {
     sku?: string;
     quantity: number;
     unit_price_minor: number;
+    discount_minor?: number;
+    vat_minor?: number;
+    vat_rate_bps?: number;
+    vat_mode?: string;
     total_minor: number;
     batch: string;
     expiry: string;

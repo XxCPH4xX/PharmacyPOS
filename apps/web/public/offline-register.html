@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="theme-color" content="#087d79" />
+<title>Offline register · PharmaCore</title>
+<style>
+:root {font-family: Inter,system-ui,-apple-system,sans-serif;color:#20313b;background:#f4f8f9;font-size:14px}
+*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #dce6e9;padding:16px max(18px,calc((100vw - 1160px)/2));display:flex;align-items:center;justify-content:space-between;gap:12px}header strong{color:#087d79;font-size:18px}header small{color:#667d89}a{color:#087d79}main{max-width:1160px;margin:28px auto;padding:0 18px}h1{font-size:24px;margin:0 0 8px}h2{font-size:17px;margin:0 0 14px}.muted{color:#647b87}.notice{padding:12px 16px;border:1px solid #e7c98b;border-radius:10px;background:#fffaee;line-height:1.5}.card{padding:20px;background:white;border:1px solid #dce6e9;border-radius:14px;margin:16px 0;box-shadow:0 2px 10px #13323c08}.grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,1fr);gap:18px}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{display:block;font-weight:600;margin:10px 0 6px;font-size:13px}input,select,button{font:inherit}input,select{height:42px;width:100%;border:1px solid #cbd9de;border-radius:8px;padding:0 12px;background:white;color:#20313b}input:focus,select:focus{outline:2px solid #1b9992;outline-offset:1px}button{min-height:41px;padding:10px 15px;border:1px solid #cbd9de;border-radius:8px;background:white;color:#20313b;cursor:pointer;font-weight:600}button.primary{background:#0a8781;color:white;border-color:#0a8781}button.danger{color:#a12828;border-color:#e7c0c0}button:disabled{opacity:.5;cursor:not-allowed}.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}.pill{display:inline-block;font-size:12px;background:#e9f3f1;border-radius:20px;padding:5px 10px;color:#087d79}.pill.off{background:#fff1e4;color:#a45b0f}.item{display:flex;justify-content:space-between;gap:12px;padding:12px 2px;border-bottom:1px solid #e8eef0}.item span,.item small{color:#6c808a}.item b{display:block;margin-bottom:4px}.total{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #edf1f2}.total.grand{font-size:18px;font-weight:700;border-top:1px solid #d6e0e4;border-bottom:0;margin-top:10px;padding-top:14px}.tag{font-size:11px;border-radius:4px;padding:3px 6px;background:#f2f5f6}.error{border:1px solid #eebbbb;border-radius:8px;color:#9a2424;background:#fff1f1;padding:12px;margin:12px 0;white-space:pre-wrap}.success{border:1px solid #b1dacb;border-radius:8px;color:#12674f;background:#ecf9f4;padding:12px;margin:12px 0}.small{font-size:12px}.hidden{display:none!important}.queue{max-height:400px;overflow:auto}.queue article{border-bottom:1px solid #e9eff0;padding:12px 0}.queue small{display:block;color:#6c808a;margin-top:4px}.queue .conflict{color:#a12828}.search-results{max-height:250px;overflow-y:auto}.selection{display:flex;align-items:center;gap:6px}.selection button{min-width:42px}.selection input{width:60px;text-align:center}.footer{margin:40px 0;text-align:center;color:#758893;font-size:12px}@media(max-width:850px){.grid,.two{grid-template-columns:1fr}main{margin-top:16px}header{padding:14px 18px}.card{padding:15px}}
+@media print{header,.actions,#setup,#unlock,#cart,#searchPanel,#syncButton{display:none!important}body{background:white}main{max-width:none}.card{border:0;box-shadow:none}#queue{display:block}}
+</style>
+</head>
+<body>
+<header><div><strong>✚ PharmaCore</strong> <small>Offline register</small></div><a href="/pos">Back to regular POS</a></header>
+<main>
+<h1>Offline register</h1>
+<p class="notice"><strong>Provisional orders only.</strong> Orders are encrypted on this device and are <strong>not completed sales</strong> until the server confirms them. Stock, price, VAT and permissions are checked again on sync. Do not issue a final tax invoice from an unsynced order.</p>
+<div class="actions"><span id="connection" class="pill off">Checking connection…</span><span id="snapshotLabel" class="muted small">No offline snapshot loaded</span></div>
+<div id="message" role="status" aria-live="polite"></div>
+<section id="setup" class="card">
+<h2>Prepare this device while online</h2>
+<p class="muted">Sign in to PharmaCore first, then choose a branch and encrypt its stock and tax snapshot. Use a unique passphrase of at least 12 characters. It is not uploaded.</p>
+<label for="branch">Branch</label><select id="branch"><option value="">Loading branches…</option></select>
+<label for="newPass">Offline register passphrase</label><input id="newPass" type="password" autocomplete="new-password" minlength="12" placeholder="12+ characters" />
+<div class="actions"><button class="primary" id="prepare">Prepare offline register</button></div>
+<p class="muted small">Preparing a new snapshot replaces this device's old one. Sync any pending orders first.</p>
+</section>
+<section id="unlock" class="card hidden">
+<h2>Unlock the encrypted register</h2>
+<label for="pass">Offline passphrase</label><input id="pass" type="password" autocomplete="off" />
+<div class="actions"><button class="primary" id="unlockButton">Unlock register</button><button id="lockButton" class="hidden">Lock</button></div>
+</section>
+<div id="register" class="hidden">
+<div class="grid">
+<section id="searchPanel" class="card"><h2>Medicine catalog</h2>
+<label for="search">Search name, generic or barcode</label><input id="search" placeholder="Search cached medicines…" autocomplete="off" />
+<div id="results" class="search-results"></div><p class="small muted">Only base selling units are available offline in this version. Quantities are provisional and limited to the last downloaded stock snapshot.</p>
+</section>
+<section id="cart" class="card"><h2>Current provisional order</h2>
+<div id="lines"></div>
+<div class="two"><div><label for="discountType">Discount</label><select id="discountType"><option value="none">Workspace default</option><option value="percent">Product discount (%)</option><option value="fixed">Extra discount (৳)</option></select></div><div><label for="discount">Discount value</label><input id="discount" inputmode="decimal" value="0" /></div></div>
+<div id="totals"></div>
+<label for="tendered">Cash received (৳)</label><input id="tendered" type="text" inputmode="decimal" placeholder="0.00" />
+<div class="actions"><button id="queueButton" class="primary">Save provisional order</button><button id="clearCart">Clear</button></div>
+<p class="muted small">Cash only. No bKash/Nagad confirmation offline. The server may reject an order if stock, VAT, pricing or access changed.</p></section>
+</div>
+<section id="queue" class="card"><h2>Offline sync queue</h2><p class="muted small">Keep this device and passphrase available until all orders are synced. Rejected orders require staff review; they are never silently discarded.</p>
+<div class="actions"><button id="syncButton" class="primary">Sync pending orders</button><button id="refreshStock">Refresh snapshot (no pending orders)</button><button id="lockButton" class="hidden">Lock register</button></div>
+<div id="orders" class="queue"></div></section>
+</div>
+<p class="footer">Offline register · encrypted device storage · provisional records until server acceptance</p>
+</main>
+<script type="module" src="/offline-register.js"></script>
+</body></html>

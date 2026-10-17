@@ -8,6 +8,7 @@ import { Printer, FileDown } from "lucide-react";
 import type { PrintProfile, Receipt } from "@/lib/types";
 import { date, money } from "@/lib/api";
 import { Button } from "./ui";
+import { vatRateLabel } from "./vat-label";
 
 export const paymentNames: Record<string, string> = {
   cash: "Cash",
@@ -113,9 +114,10 @@ function BatchDetails({ line }: { line: Receipt["lines"][number] }) {
 function Totals({ receipt }: { receipt: Receipt }) {
   return (
     <>
-      <Row label="Item total:" value={money(receipt.total_minor)} />
-      <Row label="Subtotal:" value={money(receipt.total_minor)} />
-      <Row label="VAT:" value="Not calculated" />
+      <Row label="Item total:" value={money(receipt.subtotal_minor ?? receipt.total_minor)} />
+      <Row label="Subtotal:" value={money(receipt.subtotal_minor ?? receipt.total_minor)} />
+      <Row label="Discount:" value={`−${money(receipt.discount_minor ?? 0)}`} />
+      <Row label={`${vatRateLabel(receipt.tax_snapshot?.lines)}:`} value={receipt.tax_status === "calculated" ? money(receipt.vat_minor ?? 0) : "Not calculated"} />
       <Row label="Grand total:" value={money(receipt.total_minor)} strong />
       <Row label="Paid amount:" value={money(receipt.total_minor)} />
       {receipt.payment_method === "cash" && (
@@ -268,8 +270,9 @@ export function ThermalReceipt({ receipt }: { receipt: Receipt }) {
         </tbody>
       </table>
       <section className="retail-subtotals">
-        <Row label="Subtotal" value={amount(receipt.total_minor)} />
-        <Row label="VAT" value="Not calculated" />
+        <Row label="Subtotal" value={amount(receipt.subtotal_minor ?? receipt.total_minor)} />
+        <Row label="Discount" value={`−${amount(receipt.discount_minor ?? 0)}`} />
+        <Row label={vatRateLabel(receipt.tax_snapshot?.lines)} value={receipt.tax_status === "calculated" ? amount(receipt.vat_minor ?? 0) : "Not calculated"} />
       </section>
       <section className="retail-total">
         <Row label="Total (BDT)" value={amount(receipt.total_minor)} strong />
@@ -310,7 +313,7 @@ export function ThermalReceipt({ receipt }: { receipt: Receipt }) {
         </p>
         <div className="retail-tax">
           <p>Sales tax information</p>
-          <Row label="VAT calculation" value="Not configured" />
+          <Row label={vatRateLabel(receipt.tax_snapshot?.lines)} value={receipt.tax_status === "calculated" ? money(receipt.vat_minor ?? 0) : "Not configured"} />
         </div>
         {profile.show_amount_words && receipt.amount_in_words && (
           <p className="retail-words">{receipt.amount_in_words}</p>
@@ -452,8 +455,9 @@ export function InvoiceCopy({ receipt }: { receipt: Receipt }) {
             </>
           )}
           <p className="invoice-tax-note">
-            Sales invoice. VAT has not been calculated. This document is not a
-            Mushak 6.3 VAT invoice.
+            Sales invoice. {receipt.tax_status === "calculated"
+              ? "VAT calculated using the configured product rules. This document is not certified as a Mushak 6.3 VAT invoice."
+              : "VAT has not been calculated. This document is not a Mushak 6.3 VAT invoice."}
           </p>
         </section>
         <section className="invoice-summary">

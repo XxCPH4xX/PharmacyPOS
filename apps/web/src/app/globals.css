@@ -5918,3 +5918,122 @@ strong {
   font-size: 12px;
 }
 
+
+/* Compact POS discount rows and expandable amount entry (EzPOS reference). */
+.pos-workspace .cart-checkout .cart-subtotal,
+.pos-workspace .cart-checkout .pos-discount-summary-row,
+.pos-workspace .cart-checkout .cart-total {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pos-workspace .cart-checkout .pos-discount-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+.pos-workspace .cart-checkout .pos-discount-row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 21px;
+  max-width: 80%;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.pos-workspace .cart-checkout .pos-discount-row-toggle:hover {
+  color: var(--ink);
+}
+.pos-workspace .cart-checkout .pos-discount-row-toggle:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+.pos-workspace .cart-checkout .pos-discount-row-toggle:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+.pos-workspace .cart-checkout .pos-discount-percent-icon {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+.pos-workspace .cart-checkout .pos-discount-entry {
+  margin: 2px 0 3px;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 49px;
+  gap: 5px;
+  align-items: center;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-fields input {
+  box-sizing: border-box;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  height: 29px;
+  min-height: 29px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  box-shadow: none;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-fields input:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 1px;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-fields button {
+  box-sizing: border-box;
+  height: 29px;
+  min-height: 29px;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid #ee3446;
+  border-radius: 8px;
+  background: #ef3346;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-fields button:hover {
+  background: #d9283b;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-fields button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.pos-workspace .cart-checkout .pos-discount-entry-error {
+  display: block;
+  margin-top: 4px;
+  color: #da2639;
+  font-size: 11px;
+}
+.pos-workspace .cart-checkout .cart-total {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 5px;
+}
+.pos-workspace .cart-checkout .cart-total strong:first-child,
+.pos-workspace .cart-checkout .cart-total strong:last-child {
+  font-size: 12px;
+  letter-spacing: normal;
+  line-height: 1.5;
+}

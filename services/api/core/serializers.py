@@ -73,6 +73,10 @@ class CartLineInput(StrictSerializer):
 
 
 class CheckoutInput(StrictSerializer):
+    expected_tax_version = serializers.IntegerField(min_value=0, required=False)
+    expected_total_minor = serializers.IntegerField(min_value=0, max_value=1000000000000, required=False)
+    discount_type = serializers.ChoiceField(choices=["none", "fixed", "percent"], default="none")
+    discount_value = serializers.IntegerField(min_value=0, max_value=1000000000000, default=0)
     lines = CartLineInput(many=True, min_length=1, max_length=100)
     tendered_minor = serializers.IntegerField(min_value=0, max_value=1000000000000)
     payment_method = serializers.ChoiceField(choices=["cash", "bkash", "nagad"], required=False)

@@ -21,6 +21,7 @@ class Tenant(Entity):
     name = models.CharField(max_length=150)
     active = models.BooleanField(default=True)
     currency = models.CharField(max_length=3, default="BDT", editable=False)
+    tax_config = models.JSONField(default=dict)
 
 
 class ScopedEntity(Entity):

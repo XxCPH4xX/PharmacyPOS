@@ -26,6 +26,7 @@ import type {
 } from "@/lib/types";
 import { Badge, Button, Empty, Field, Modal, Pagination } from "./ui";
 import { ReceiptDialog } from "./pos";
+import { TaxSettings } from "./tax-settings";
 import { paymentNames } from "./print-documents";
 import { Distribution, RevenueChart } from "./dashboard";
 
@@ -568,6 +569,7 @@ export function Settings({
           ))}
         </div>
       </section>
+      <TaxSettings branch={branch} isOwner={role === "owner"} />
       <section className="panel settings-panel">
         <div className="panel-heading">
           <div>
@@ -585,7 +587,7 @@ export function Settings({
           <p>
             bKash and Nagad payments must be verified in your merchant account
             before recording them here. Automatic gateway verification,
-            prescription dispensing, refunds, tax calculation, and offline
+            prescription dispensing, refunds, and offline
             operations are not yet available.
           </p>
         </div>

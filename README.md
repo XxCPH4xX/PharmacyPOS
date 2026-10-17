@@ -179,3 +179,11 @@ pharmacy user acceptance. No performance or compliance certification is claimed.
 This workspace has not been published or connected to a remote repository.
 Choose a private remote, branch protections, and an appropriate distribution
 license before commercial development proceeds.
+
+## Configurable VAT and discounts
+
+Owner-only VAT settings, medicine exemptions and custom rates, inclusive/exclusive pricing, fixed/percentage customer discounts, server-verified checkout totals, and receipt/invoice snapshots have been added. See [Tax and discounts](docs/operations/tax-and-discounts.md) for setup and limitations.
+
+## Offline register (provisional orders)
+
+For a disconnected browser, first prepare the dedicated [offline register](apps/web/public/offline-register.html) while signed in and online. It encrypts short-lived medicine/VAT snapshots and provisional cash orders on the device, then synchronizes them via the existing idempotent checkout when connectivity returns. **Unsynced orders are not completed sales and cannot be used as final invoices.** See [offline register operations and limitations](docs/operations/offline-register.md).

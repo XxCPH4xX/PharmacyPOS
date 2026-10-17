@@ -15,12 +15,13 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, money, number, toMinor } from "@/lib/api";
 import type { Product, Receipt } from "@/lib/types";
 import { Badge, Button, Empty, Field, Modal } from "./ui";
 import { CustomerPicker } from "./customer-picker";
 import { CheckoutDialog } from "./checkout-dialog";
+import { vatRateLabel } from "./vat-label";
 
 import {
   InvoiceCopy,
@@ -52,6 +53,10 @@ type CheckoutPayload = {
     expected_base_units?: number;
   }[];
   tendered_minor: number;
+  expected_tax_version?: number;
+  expected_total_minor?: number;
+  discount_type?: "none" | "fixed" | "percent";
+  discount_value?: number;
   payment_method?: string;
   payment_reference?: string;
   payment_confirmed?: boolean;
@@ -145,6 +150,14 @@ export function POS({
   const [category, setCategory] = useState("All medicines");
   const [cart, setCart] = useState<Cart>([]);
   const [tender, setTender] = useState("");
+  const [discountType, setDiscountType] = useState<"none" | "fixed" | "percent">("none");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountEditor, setDiscountEditor] = useState<"fixed" | "percent" | null>(null);
+  const [draftDiscountValue, setDraftDiscountValue] = useState("0.00");
+  const [discountInputError, setDiscountInputError] = useState("");
+  const discountInputRef = useRef<HTMLInputElement>(null);
+  const [quote, setQuote] = useState<import("@/lib/types").SaleQuote | null>(null);
+  const [quoteError, setQuoteError] = useState("");
   const [method, setMethod] = useState("cash"),
     [paymentReference, setPaymentReference] = useState(""),
     [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -171,6 +184,9 @@ export function POS({
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [mobilePanel, setMobilePanel] = useState("medicines");
+  useEffect(() => {
+    if (discountEditor) discountInputRef.current?.focus();
+  }, [discountEditor]);
   useEffect(() => {
     gridRef.current?.scrollTo({ top: 0 });
   }, [search, category]);
@@ -206,6 +222,11 @@ export function POS({
           })),
       );
       setTender((operation.body.tendered_minor / 100).toFixed(2));
+      setDiscountType(operation.body.discount_type || "none");
+      setDiscountValue(operation.body.discount_type === "fixed"
+        ? ((operation.body.discount_value || 0) / 100).toFixed(2)
+        : operation.body.discount_type === "percent"
+          ? String((operation.body.discount_value || 0) / 100) : "");
       setMethod(operation.body.payment_method || "cash");
       setPaymentReference(operation.body.payment_reference || "");
       setPaymentConfirmed(operation.body.payment_confirmed || false);
@@ -223,6 +244,8 @@ export function POS({
     } else {
       setCart([]);
       setTender("");
+      setDiscountType("none");
+      setDiscountValue("");
       setCustomer({
         customer_id: null,
         staff_name: "",
@@ -243,6 +266,8 @@ export function POS({
           setCustomer(draft.customer);
           setTender(draft.tender || "");
           setMethod(draft.method || "cash");
+          setDiscountType(draft.discountType || "none");
+          setDiscountValue(draft.discountValue || "");
         }
       } catch {
         sessionStorage.removeItem(draftKey);
@@ -256,9 +281,9 @@ export function POS({
     if (draftReady && !pending)
       sessionStorage.setItem(
         draftKey,
-        JSON.stringify({ cart, customer, tender, method }),
+        JSON.stringify({ cart, customer, tender, method, discountType, discountValue }),
       );
-  }, [cart, customer, tender, method, draftReady, pending, draftKey]);
+  }, [cart, customer, tender, method, discountType, discountValue, draftReady, pending, draftKey]);
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if (event.key === "F2") {
@@ -273,6 +298,89 @@ export function POS({
     (sum, line) => sum + unitPrice(line) * line.quantity,
     0,
   );
+  function toggleDiscountEditor(mode: "fixed" | "percent") {
+    if (busy || pending) return;
+    if (discountEditor === mode) {
+      setDiscountEditor(null);
+      return;
+    }
+    setDraftDiscountValue(
+      discountType === mode
+        ? discountValue
+        : mode === "percent" && quoteReady && quote?.discount_type === "percent"
+          ? (quote.discount_value / 100).toFixed(2)
+          : "0.00",
+    );
+    setDiscountInputError("");
+    setDiscountEditor(mode);
+  }
+  function applyDiscount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy || pending || !discountEditor) return;
+    const raw = draftDiscountValue.trim();
+    if (!/^\d{1,10}(\.\d{0,2})?$/.test(raw)) {
+      setDiscountInputError("Enter a valid amount (up to two decimal places).");
+      return;
+    }
+    const amount = Number(raw);
+    if (
+      !Number.isFinite(amount) ||
+      (discountEditor === "percent" && amount > 100) ||
+      (discountEditor === "fixed" && Math.round(amount * 100) > total)
+    ) {
+      setDiscountInputError(
+        discountEditor === "percent"
+          ? "Discount cannot exceed 100%."
+          : "Discount cannot exceed the sale subtotal.",
+      );
+      return;
+    }
+    setDiscountType(amount === 0 ? "none" : discountEditor);
+    setDiscountValue(amount === 0 ? "" : raw);
+    setDiscountInputError("");
+    setDiscountEditor(null);
+  }
+  const discountParsed = Number(discountValue);
+  const discountValid = discountType === "none" ||
+    (discountValue.trim() !== "" && /^\d{1,10}(\.\d{0,2})?$/.test(discountValue) &&
+      Number.isFinite(discountParsed) && (discountType !== "percent" || discountParsed <= 100));
+  const discountMinorValue = discountType === "none" ? 0 :
+    Math.round(discountParsed * 100);
+  const cartSignature = JSON.stringify(cart.map((line) => ({
+    product_id: line.product.id,
+    quantity: line.quantity,
+    expected_price_minor: line.product.price_minor,
+    unit_id: line.unitId,
+    expected_base_units: multiplier(line),
+    expected_unit_price_minor: unitPrice(line),
+  })));
+  const quoteSignature = `${branch}|${cartSignature}|${discountType}|${discountMinorValue}`;
+  const [pricedSignature, setPricedSignature] = useState("");
+  useEffect(() => {
+    if (!cart.length || !discountValid || pending) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      void api<import("@/lib/types").SaleQuote>("sales/quote/", {
+        method: "POST",
+        body: JSON.stringify({
+          lines: JSON.parse(cartSignature),
+          discount_type: discountType,
+          discount_value: discountMinorValue,
+        }),
+      }, branch).then((result) => {
+        if (active) {
+          setQuote(result);
+          setPricedSignature(quoteSignature);
+          setQuoteError("");
+        }
+      }).catch((err) => {
+        if (active) { setQuote(null); setQuoteError((err as Error).message); }
+      });
+    }, 150);
+    return () => { active = false; clearTimeout(timer); };
+  }, [cartSignature, quoteSignature, branch, discountType, discountMinorValue, discountValid, pending]);
+  const quoteReady = pricedSignature === quoteSignature && !!quote && discountValid;
+  const payable = quoteReady ? quote!.total_minor : total;
   const filtered = products.filter(
     (p) =>
       p.active &&
@@ -327,7 +435,7 @@ export function POS({
     );
   }
   async function pay() {
-    if (busy || (!cart.length && !pending)) return;
+    if (busy || (!cart.length && !pending) || (!pending && !quoteReady)) return;
     setBusy(true);
     setError("");
     try {
@@ -343,7 +451,11 @@ export function POS({
             expected_base_units: multiplier(line),
             expected_unit_price_minor: unitPrice(line),
           })),
-          tendered_minor: method === "cash" && tender ? toMinor(tender) : total,
+          tendered_minor: method === "cash" && tender ? toMinor(tender) : payable,
+          discount_type: discountType,
+          discount_value: discountMinorValue,
+          expected_total_minor: payable,
+          expected_tax_version: quote?.settings_version,
           payment_method: method,
           payment_reference: method === "cash" ? "" : paymentReference,
           payment_confirmed: paymentConfirmed,
@@ -365,6 +477,12 @@ export function POS({
       setPending(null);
       setCart([]);
       setTender("");
+      setDiscountType("none");
+      setDiscountValue("");
+      setDiscountEditor(null);
+      setDiscountInputError("");
+      setQuote(null);
+      setPricedSignature("");
       setPaymentOpen(false);
       setReceipt(result);
       setPaymentReference("");
@@ -427,6 +545,12 @@ export function POS({
         >
           Current sale ({cart.length}) · {money(total)}
         </button>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        <a href="/offline-register.html" target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 12, color: "var(--teal, #087d79)", textDecoration: "underline" }}>
+          Prepare / open offline register
+        </a>
       </div>
       <div className={`pos-layout pos-view-${mobilePanel}`}>
         <section className="pos-products">
@@ -743,13 +867,99 @@ export function POS({
               <span>Subtotal</span>
               <span>{money(total)}</span>
             </div>
-            <div className="cart-tax">
-              <span>Tax</span>
-              <span>Not configured</span>
+            <div className="pos-discount-summary-row">
+              <button
+                type="button"
+                className="pos-discount-row-toggle"
+                onClick={() => toggleDiscountEditor("percent")}
+                aria-expanded={discountEditor === "percent"}
+                aria-controls="pos-product-discount-entry"
+                disabled={busy || !!pending}
+              >
+                <span className="pos-discount-percent-icon" aria-hidden="true">%</span>
+                Product discount
+              </button>
+              <span>{quoteReady && quote!.discount_type === "percent" ? money(quote!.discount_minor) : money(0)}</span>
             </div>
+            {discountEditor === "percent" && (
+              <form
+                id="pos-product-discount-entry"
+                className="pos-discount-entry"
+                onSubmit={applyDiscount}
+              >
+                <div className="pos-discount-entry-fields">
+                  <input
+                    ref={discountInputRef}
+                    aria-label="Product discount percentage"
+                    aria-invalid={!!discountInputError}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={draftDiscountValue}
+                    disabled={busy || !!pending}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (/^\d{0,10}(\.\d{0,2})?$/.test(value)) {
+                        setDraftDiscountValue(value);
+                        setDiscountInputError("");
+                      }
+                    }}
+                  />
+                  <button type="submit" disabled={busy || !!pending}>Apply</button>
+                </div>
+                {discountInputError && <small className="pos-discount-entry-error" role="alert">{discountInputError}</small>}
+              </form>
+            )}
+            <div className="pos-discount-summary-row">
+              <button
+                type="button"
+                className="pos-discount-row-toggle"
+                onClick={() => toggleDiscountEditor("fixed")}
+                aria-expanded={discountEditor === "fixed"}
+                aria-controls="pos-extra-discount-entry"
+                disabled={busy || !!pending}
+              >
+                Extra discount
+              </button>
+              <span>{quoteReady && quote!.discount_type === "fixed" ? money(quote!.discount_minor) : money(0)}</span>
+            </div>
+            {discountEditor === "fixed" && (
+              <form
+                id="pos-extra-discount-entry"
+                className="pos-discount-entry"
+                onSubmit={applyDiscount}
+              >
+                <div className="pos-discount-entry-fields">
+                  <input
+                    ref={discountInputRef}
+                    aria-label="Extra discount amount in taka"
+                    aria-invalid={!!discountInputError}
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={draftDiscountValue}
+                    disabled={busy || !!pending}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (/^\d{0,10}(\.\d{0,2})?$/.test(value)) {
+                        setDraftDiscountValue(value);
+                        setDiscountInputError("");
+                      }
+                    }}
+                  />
+                  <button type="submit" disabled={busy || !!pending}>Apply</button>
+                </div>
+                {discountInputError && <small className="pos-discount-entry-error" role="alert">{discountInputError}</small>}
+              </form>
+            )}
+            <div className="pos-discount-summary-row pos-discount-vat-row">
+              <span>{vatRateLabel(quoteReady ? quote!.lines : [])}</span>
+              <span>{quoteReady ? money(quote!.vat_minor) : cart.length ? "Calculating…" : money(0)}</span>
+            </div>
+            {quoteError && <p className="form-error" role="alert">{quoteError}</p>}
             <div className="cart-total">
               <strong>Total payable</strong>
-              <strong>{money(total)}</strong>
+              <strong>{money(payable)}</strong>
             </div>
             {error && (
               <div className="form-error" role="alert">
@@ -796,6 +1006,7 @@ export function POS({
               className="full-width charge-button"
               disabled={
                 !cart.length ||
+                !quoteReady ||
                 busy ||
                 reviewNeeded ||
                 cart.some(
@@ -807,7 +1018,7 @@ export function POS({
             >
               {pending
                 ? "Review pending sale"
-                : `Review payment · ${money(total)}`}
+                : `Review payment · ${money(payable)}`}
               <ArrowRight size={18} />
             </Button>
             <small className="checkout-note">
@@ -904,7 +1115,11 @@ export function POS({
             "UNIT",
           total: line.quantity * unitPrice(line),
         }))}
-        total={total}
+        total={pending ? pending.body.expected_total_minor ?? payable : payable}
+        subtotal={quote?.subtotal_minor ?? total}
+        discount={quoteReady ? quote!.discount_minor : 0}
+        vat={quoteReady ? quote.vat_minor : 0}
+        vatRates={quoteReady ? quote!.lines : []}
         customer={`${customer.customer_name || "Walk-in customer"} · ${customer.customer_type}`}
         method={method}
         onMethod={(value) => {

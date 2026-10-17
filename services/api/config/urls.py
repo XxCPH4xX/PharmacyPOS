@@ -23,8 +23,9 @@ from core.security_views import (
 )
 from core.views import AuditView, BranchView, DashboardView, HealthView
 from core.workspace_settings import WorkspaceSettingsView
+from core.tax_views import TaxSettingsView
 from inventory.views import BatchesView, LedgerView, ReceiveView
-from sales.views import CheckoutView, ReceiptView, SalesExportView, SalesView
+from sales.views import CheckoutView, QuoteView, ReceiptView, SalesExportView, SalesView
 
 urlpatterns = [
     path("api/v1/health/", HealthView.as_view()),
@@ -44,6 +45,7 @@ urlpatterns = [
     path("api/v1/branches/", BranchView.as_view()),
     path("api/v1/branches/<uuid:branch_id>/", WorkspaceSettingsView.as_view()),
     path("api/v1/settings/workspace/", WorkspaceSettingsView.as_view()),
+    path("api/v1/settings/tax/", TaxSettingsView.as_view()),
     path("api/v1/customers/", CustomersView.as_view()),
     path("api/v1/catalog/", CatalogView.as_view()),
     path(
@@ -61,6 +63,7 @@ urlpatterns = [
     path("api/v1/inventory/batches/", BatchesView.as_view()),
     path("api/v1/inventory/receive/", ReceiveView.as_view()),
     path("api/v1/inventory/ledger/", LedgerView.as_view()),
+    path("api/v1/sales/quote/", QuoteView.as_view()),
     path("api/v1/sales/checkout/", CheckoutView.as_view()),
     path("api/v1/sales/export/", SalesExportView.as_view()),
     path("api/v1/sales/<uuid:sale_id>/", ReceiptView.as_view()),

@@ -5,12 +5,17 @@ import { useEffect, useRef } from "react";
 import { money, toMinor } from "@/lib/api";
 import { Button, Field, Modal } from "./ui";
 import { paymentNames } from "./print-documents";
+import { vatRateLabel, type VatRateLine } from "./vat-label";
 
 export function CheckoutDialog({
   open,
   onClose,
   lines,
   total,
+  subtotal,
+  discount,
+  vat,
+  vatRates,
   customer,
   method,
   onMethod,
@@ -35,6 +40,10 @@ export function CheckoutDialog({
     total: number;
   }[];
   total: number;
+  subtotal: number;
+  discount: number;
+  vat: number;
+  vatRates?: readonly VatRateLine[];
   customer: string;
   method: string;
   onMethod: (value: string) => void;
@@ -176,11 +185,15 @@ export function CheckoutDialog({
           <div className="payment-summary-totals">
             <div>
               <span>Subtotal</span>
-              <span>{money(total)}</span>
+              <span>{money(subtotal)}</span>
             </div>
             <div>
-              <span>Tax</span>
-              <span>Not configured</span>
+              <span>Discount</span>
+              <span>−{money(discount)}</span>
+            </div>
+            <div>
+              <span>{vatRateLabel(vatRates)}</span>
+              <span>{money(vat)}</span>
             </div>
           </div>
           <div className="payment-total">

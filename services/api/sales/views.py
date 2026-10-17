@@ -10,10 +10,55 @@ from rest_framework.views import APIView
 from catalog.views import Pagination
 from core.access import scope_for
 from core.operations import audit
-from core.serializers import CheckoutInput
+from core.serializers import CheckoutInput, StrictSerializer, CartLineInput
+from core.tax import calculate, config_for
+from catalog.models import TenantProduct, ProductUnit
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from sales.models import Sale
 from sales.services import checkout, receipt_data
 
+
+class QuoteInput(StrictSerializer):
+    lines = CartLineInput(many=True, min_length=1, max_length=100)
+    discount_type = serializers.ChoiceField(choices=["none", "fixed", "percent"], default="none")
+    discount_value = serializers.IntegerField(min_value=0, max_value=1000000000000, default=0)
+
+    def validate_lines(self, lines):
+        ids = [item["product_id"] for item in lines]
+        if len(ids) != len(set(ids)):
+            raise ValidationError("Combine duplicate medicines first.")
+        return lines
+
+class QuoteView(APIView):
+    def post(self, request):
+        scope = scope_for(request, "sell")
+        serializer = QuoteInput(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entries = serializer.validated_data
+        lines = []
+        for entry in entries["lines"]:
+            item = TenantProduct.objects.filter(id=entry["product_id"], tenant=scope.tenant, active=True).first()
+            if not item or item.price_minor != entry["expected_price_minor"]:
+                raise ValidationError("Medicine price changed. Refresh the sale.")
+            multiplier = 1
+            price = item.price_minor
+            if entry.get("unit_id"):
+                unit = ProductUnit.objects.filter(id=entry["unit_id"], product=item, tenant=scope.tenant, active=True).first()
+                if not unit:
+                    raise ValidationError("Selling unit changed. Refresh the sale.")
+                multiplier = unit.base_units
+                price = unit.price_minor if unit.price_minor is not None else item.price_minor * multiplier
+            if multiplier != entry.get("expected_base_units", 1) or price != entry.get("expected_unit_price_minor", item.price_minor * multiplier):
+                raise ValidationError("Package price changed. Refresh the sale.")
+            lines.append({"product_id": item.id, "amount_minor": price * entry["quantity"]})
+        try:
+            configuration = config_for(scope.tenant)
+            result = calculate(lines, configuration, entries["discount_type"], entries["discount_value"])
+            result["settings_version"] = configuration["version"]
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from None
+        return Response(result)
 
 class CheckoutView(APIView):
     @extend_schema(
@@ -55,6 +100,9 @@ class SalesView(APIView):
                     "created_at": s.created_at.isoformat(),
                     "cashier": s.cashier.first_name,
                     "total_minor": s.total_minor,
+                    "subtotal_minor": s.subtotal_minor or (s.total_minor if not s.tax_snapshot else 0),
+                    "discount_minor": s.discount_minor,
+                    "vat_minor": s.vat_minor,
                     "payment_method": s.payment.method,
                     "status": "completed",
                 }
@@ -83,7 +131,7 @@ class SalesExportView(APIView):
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(
-            ["Receipt", "Created (UTC)", "Branch", "Cashier", "Revenue (paisa)", "COGS (paisa)", "Payment"]
+            ["Receipt", "Created (UTC)", "Branch", "Cashier", "Revenue (paisa)", "COGS (paisa)", "Payment", "Subtotal (paisa)", "Discount (paisa)", "VAT (paisa)"]
         )
         for sale in visible_sales(scope).iterator(chunk_size=500):
             writer.writerow(
@@ -95,6 +143,9 @@ class SalesExportView(APIView):
                     sale.total_minor,
                     sale.cost_minor,
                     sale.payment.method,
+                    sale.subtotal_minor or (sale.total_minor if not sale.tax_snapshot else 0),
+                    sale.discount_minor,
+                    sale.vat_minor,
                 ]
             )
         audit(scope, "report.sales_exported", scope.branch.id)
