@@ -22,6 +22,10 @@ import { Badge, Button, Empty, Field, Modal } from "./ui";
 import { CustomerPicker } from "./customer-picker";
 import { CheckoutDialog } from "./checkout-dialog";
 import { vatRateLabel } from "./vat-label";
+import "./pos-continuity.css";
+import { calculateOfflineQuote, deviceScope, listCashSales, loadCatalog,
+  reservedBaseUnits, saveCashSale, saveCatalog, synchronizeCashSales,
+  type LocalCashSale, type TaxSnapshot } from "@/lib/pos-continuity";
 
 import {
   InvoiceCopy,
@@ -181,6 +185,15 @@ export function POS({
   const [reviewNeeded, setReviewNeeded] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [pending, setPending] = useState<PendingSale | null>(null);
+  const [localSales, setLocalSales] = useState<LocalCashSale[]>([]);
+  const [pricingMode, setPricingMode] = useState<"online" | "offline">("online");
+  const [connectionRevision, setConnectionRevision] = useState(0);
+  const [syncingQueue, setSyncingQueue] = useState(false);
+  const [queueWarning, setQueueWarning] = useState("");
+  const [snapshotReady, setSnapshotReady] = useState(false);
+  const scope = deviceScope(identity, branch);
+  const queuedUnits = reservedBaseUnits(localSales);
+  const unresolved = localSales.filter((sale) => sale.status !== "synced");
   const searchRef = useRef<HTMLInputElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const [mobilePanel, setMobilePanel] = useState("medicines");
@@ -190,6 +203,68 @@ export function POS({
   useEffect(() => {
     gridRef.current?.scrollTo({ top: 0 });
   }, [search, category]);
+  useEffect(() => {
+    let active = true;
+    const check = () => {
+      if (!active) return;
+      if (!navigator.onLine) setPricingMode("offline");
+      else void api("health/").then(() => {
+        if (active) setPricingMode("online");
+      }).catch(() => {
+        if (active) setPricingMode("offline");
+      });
+      setConnectionRevision((number) => number + 1);
+    };
+    window.addEventListener("online", check);
+    window.addEventListener("offline", check);
+    void Promise.all([loadCatalog(scope), listCashSales(identity, branch)]).then(([snapshot, sales]) => {
+      if (!active) return;
+      setSnapshotReady(!!snapshot);
+      setLocalSales(sales);
+    }).catch((err) => { if (active) setQueueWarning((err as Error).message); });
+    return () => {
+      active = false;
+      window.removeEventListener("online", check);
+      window.removeEventListener("offline", check);
+    };
+  }, [scope, identity, branch]);
+  useEffect(() => {
+    let active = true;
+    if (!products.length) return;
+    void api<TaxSnapshot>("settings/tax/", {}, branch).then(async (tax) => {
+      await saveCatalog(scope, products, tax);
+      if (active) setSnapshotReady(true);
+    }).catch(() => { /* Cached snapshot remains valid for a bounded outage. */ });
+    return () => { active = false; };
+  }, [scope, branch, products, connectionRevision]);
+  useEffect(() => {
+    let active = true;
+    let processing = false;
+    async function tick() {
+      if (!active || processing || !navigator.onLine) return;
+      processing = true;
+      try {
+        const summary = await synchronizeCashSales(identity, branch);
+        if (!active) return;
+        setLocalSales(await listCashSales(identity, branch));
+        if (summary.synced) {
+          onCompleted();
+          setQueueWarning(`${summary.synced} queued sale(s) confirmed by the server.`);
+        }
+      } catch (err) { if (active) setQueueWarning((err as Error).message); }
+      finally { processing = false; }
+    }
+    void tick();
+    const timer = window.setInterval(() => { void tick(); }, 20000);
+    const onWake = () => { if (document.visibilityState === "visible") void tick(); };
+    document.addEventListener("visibilitychange", onWake);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onWake);
+    };
+    // Keep this loop tied to the original cashier and selected branch.
+  }, [identity, branch, connectionRevision]);
   const storageKey = `pharmacore:checkout:${identity}:${branch}`;
   const draftKey = `pharmacore:draft:${identity}:${branch}`;
   useEffect(() => {
@@ -354,7 +429,7 @@ export function POS({
     expected_base_units: multiplier(line),
     expected_unit_price_minor: unitPrice(line),
   })));
-  const quoteSignature = `${branch}|${cartSignature}|${discountType}|${discountMinorValue}`;
+  const quoteSignature = `${branch}|${cartSignature}|${discountType}|${discountMinorValue}|${connectionRevision}`;
   const [pricedSignature, setPricedSignature] = useState("");
   useEffect(() => {
     if (!cart.length || !discountValid || pending) return;
@@ -371,14 +446,42 @@ export function POS({
         if (active) {
           setQuote(result);
           setPricedSignature(quoteSignature);
+          setPricingMode("online");
           setQuoteError("");
         }
-      }).catch((err) => {
-        if (active) { setQuote(null); setQuoteError((err as Error).message); }
+      }).catch(async (err) => {
+        if (!active) return;
+        if (err instanceof ApiError && err.status > 0 && err.status < 500) {
+          setQuote(null); setQuoteError(err.message); return;
+        }
+        try {
+          const snapshot = await loadCatalog(scope);
+          if (!snapshot) throw new Error("No valid offline price snapshot. Reconnect before checkout.");
+          const lines = JSON.parse(cartSignature) as CheckoutPayload["lines"];
+          for (const line of lines) {
+            const medicine = snapshot.products.find((p) => p.id === line.product_id);
+            if (!medicine || !medicine.active || medicine.prescription_required ||
+                medicine.price_minor !== line.expected_price_minor || line.unit_id ||
+                (line.expected_base_units || 1) !== 1)
+              throw new Error("This medicine or selling unit needs online verification.");
+            if (line.quantity + (queuedUnits[line.product_id] || 0) >
+                (medicine.base_available ?? medicine.stock))
+              throw new Error("Cached stock exhausted by unsynced sales.");
+          }
+          const result = calculateOfflineQuote(lines, snapshot.tax, discountType, discountMinorValue);
+          if (active) {
+            setQuote(result);
+            setPricedSignature(quoteSignature);
+            setPricingMode("offline");
+            setQuoteError("");
+          }
+        } catch (offlineError) {
+          if (active) { setQuote(null); setQuoteError((offlineError as Error).message); }
+        }
       });
     }, 150);
     return () => { active = false; clearTimeout(timer); };
-  }, [cartSignature, quoteSignature, branch, discountType, discountMinorValue, discountValid, pending]);
+  }, [cartSignature, quoteSignature, branch, discountType, discountMinorValue, discountValid, pending, scope, connectionRevision, localSales]);
   const quoteReady = pricedSignature === quoteSignature && !!quote && discountValid;
   const payable = quoteReady ? quote!.total_minor : total;
   const filtered = products.filter(
@@ -391,6 +494,11 @@ export function POS({
   );
   function add(product: Product) {
     if (busy || pending) return;
+    if (pricingMode === "offline" && (queuedUnits[product.id] || 0) + 1 >
+        (product.base_available ?? product.stock)) {
+      notify("Offline cached stock is reserved by pending sales.");
+      return;
+    }
     if (product.prescription_required) {
       notify(
         "Prescription verification is required. This medicine cannot be dispensed yet.",
@@ -434,6 +542,27 @@ export function POS({
       ),
     );
   }
+  function clearAfterCheckout() {
+    sessionStorage.removeItem(storageKey);
+    setPending(null);
+    setCart([]);
+    setTender("");
+    setDiscountType("none");
+    setDiscountValue("");
+    setDiscountEditor(null);
+    setDiscountInputError("");
+    setQuote(null);
+    setPricedSignature("");
+    setPaymentOpen(false);
+    setPaymentReference("");
+    setPaymentConfirmed(false);
+    setMethod("cash");
+    setCustomer({
+      customer_id: null, staff_name: "", created_by: "", customer_name: "",
+      customer_phone: "", customer_address: "", customer_bin: "",
+      customer_type: "Retail", remarks: "",
+    });
+  }
   async function pay() {
     if (busy || (!cart.length && !pending) || (!pending && !quoteReady)) return;
     setBusy(true);
@@ -462,6 +591,60 @@ export function POS({
           ...customer,
         },
       };
+      // Cash requests are always written durably BEFORE the network request.
+      // That covers a server commit followed by a lost response or browser crash.
+      if (operation.body.payment_method === "cash") {
+        const previous = await listCashSales(identity, branch);
+        if (!previous.some((sale) => sale.id === operation.key)) {
+          if (previous.filter((sale) => sale.status !== "synced").length >= 100)
+            throw new Error("100 unresolved local sales reached. Reconcile before continuing.");
+          if (pricingMode === "offline" && !snapshotReady)
+            throw new Error("Offline pricing has not been prepared on this device.");
+          if (pricingMode === "offline" && operation.body.lines.some((line) => !!line.unit_id ||
+                (line.expected_base_units || 1) !== 1))
+            throw new Error("Offline checkout currently supports base units only.");
+          if (pricingMode === "offline" && (operation.body.customer_id ||
+              operation.body.customer_name || operation.body.customer_phone ||
+              operation.body.customer_address || operation.body.customer_bin))
+            throw new Error("Use walk-in checkout offline. Customer records require online verification.");
+          if (pricingMode === "offline") {
+            const snapshot = await loadCatalog(scope);
+            if (!snapshot) throw new Error("Cached medicine prices expired. Reconnect to continue.");
+            const reserved = reservedBaseUnits(previous);
+            for (const line of operation.body.lines) {
+              const record = snapshot.products.find((p) => p.id === line.product_id);
+              if (!record || record.prescription_required || !record.active ||
+                  line.quantity + (reserved[line.product_id] || 0) > (record.base_available ?? record.stock))
+                throw new Error("Cached medicine stock is insufficient for this sale.");
+            }
+          }
+          await saveCashSale({ id: operation.key, identity, branch,
+            payload: operation.body, createdAt: Date.now(), status: "queued", error: "" });
+        }
+        const latest = await listCashSales(identity, branch);
+        setLocalSales(latest);
+        if (navigator.onLine) {
+          setSyncingQueue(true);
+          try { await synchronizeCashSales(identity, branch); }
+          catch { /* Remains queued for automatic reconnect. */ }
+          finally { setSyncingQueue(false); }
+        }
+        const refreshed = await listCashSales(identity, branch);
+        setLocalSales(refreshed);
+        const saved = refreshed.find((sale) => sale.id === operation.key);
+        if (saved?.status === "synced" && saved.receipt) {
+          clearAfterCheckout();
+          setReceipt(saved.receipt);
+          onCompleted();
+        } else {
+          clearAfterCheckout();
+          setQueueWarning(saved?.status === "needs_review"
+            ? `Sale needs review: ${saved.error}`
+            : "Cash sale saved locally — pending server confirmation. Not a final receipt.");
+        }
+        return;
+      }
+      if (pricingMode === "offline") throw new Error("Mobile payments require the online server.");
       sessionStorage.setItem(storageKey, JSON.stringify(operation));
       setPending(operation);
       const result = await api<Receipt>(
@@ -546,12 +729,43 @@ export function POS({
           Current sale ({cart.length}) · {money(total)}
         </button>
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-        <a href="/offline-register.html" target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 12, color: "var(--teal, #087d79)", textDecoration: "underline" }}>
-          Prepare / open offline register
-        </a>
-      </div>
+      <section className="pos-continuity" aria-label="Connection and sales synchronization" role="status">
+        <div className="pos-continuity-heading">
+          <span className={`pos-continuity-indicator ${pricingMode === "offline" ? "disconnected" : ""}`} />
+          <strong>{pricingMode === "offline" ? "Offline — cached prices" : "Connected POS"}</strong>
+          <span>{unresolved.filter((sale) => sale.status === "queued").length} pending sync</span>
+          <span>{unresolved.filter((sale) => sale.status === "needs_review").length} need review</span>
+          <button type="button" disabled={syncingQueue || !unresolved.length}
+            onClick={async () => {
+              setSyncingQueue(true);
+              try {
+                const result = await synchronizeCashSales(identity, branch);
+                setLocalSales(await listCashSales(identity, branch));
+                if (result.synced) onCompleted();
+              } catch (err) { setQueueWarning((err as Error).message); }
+              finally { setSyncingQueue(false); }
+            }}>
+            {syncingQueue ? "Syncing…" : "Sync now"}
+          </button>
+        </div>
+        {pricingMode === "offline" && (
+          <p>Cash base-unit sales can be queued with estimated VAT. Final receipts and stock changes require server confirmation.</p>
+        )}
+        {queueWarning && <p role="alert">{queueWarning}</p>}
+        {unresolved.length > 0 && (
+          <details className="pos-continuity-items">
+            <summary>View {unresolved.length} locally saved sale(s)</summary>
+            {unresolved.slice(0, 20).map((sale) => (
+              <div key={sale.id}>
+                <span>{new Date(sale.createdAt).toLocaleString()} · {sale.id.slice(0, 8)}</span>
+                <strong>{sale.status === "needs_review" ? "Needs manual review" : "Pending sync"}</strong>
+                <span>{money(sale.payload.expected_total_minor || 0)}</span>
+                {sale.error && <small>{sale.error}</small>}
+              </div>
+            ))}
+          </details>
+        )}
+      </section>
       <div className={`pos-layout pos-view-${mobilePanel}`}>
         <section className="pos-products">
           <div className="panel pos-search-panel">
@@ -1023,7 +1237,7 @@ export function POS({
             </Button>
             <small className="checkout-note">
               <ShieldCheck size={12} />
-              Prices and stock verified before completion
+              {pricingMode === "offline" ? "Offline values are estimates until sync" : "Prices and stock verified before completion"}
             </small>
           </div>
         </aside>
@@ -1123,6 +1337,10 @@ export function POS({
         customer={`${customer.customer_name || "Walk-in customer"} · ${customer.customer_type}`}
         method={method}
         onMethod={(value) => {
+          if (pricingMode === "offline" && value !== "cash") {
+            setError("Mobile payment cannot be verified offline.");
+            return;
+          }
           setMethod(value);
           setPaymentConfirmed(false);
           setPaymentReference("");

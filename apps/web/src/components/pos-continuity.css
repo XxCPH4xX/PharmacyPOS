@@ -1,0 +1,16 @@
+/* POS continuity status: intentionally distinct from confirmed receipts. */
+.pos-continuity { border: 1px solid var(--line, #dce6e9); padding: 12px 16px;
+  border-radius: 10px; background: var(--surface, #fff); margin-bottom: 12px; font-size: 12px; }
+.pos-continuity-heading { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.pos-continuity-heading strong { font-size: 13px; }
+.pos-continuity-heading button { margin-left:auto; border:1px solid var(--line, #dce6e9);
+  background:transparent; border-radius:6px; padding:6px 10px; color:inherit; cursor:pointer; }
+.pos-continuity-heading button:disabled { opacity:.5; cursor:not-allowed; }
+.pos-continuity-indicator { flex:none; width:8px; height:8px; border-radius:50%; background:#159a80; }
+.pos-continuity-indicator.disconnected { background:#d9962f; }
+.pos-continuity p { margin:8px 0 0; color:var(--muted, #647b87); line-height:1.5; }
+.pos-continuity-items { border-top:1px solid var(--line, #dce6e9); margin-top:10px; padding-top:8px; }
+.pos-continuity-items summary { cursor:pointer; }
+.pos-continuity-items > div { display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+  border-top:1px solid var(--line,#dce6e9); padding:8px 0; }
+.pos-continuity-items small { width:100%; color:#ad422f; }
