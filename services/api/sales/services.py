@@ -2,6 +2,7 @@ import uuid
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from catalog.models import ProductUnit, TenantProduct
 from core.errors import BusinessError
@@ -114,8 +115,18 @@ def receipt_data(sale):
 @transaction.atomic
 def _checkout(scope, data, key, *, occurred_at=None):
     scope.require("sell")
+    # A legacy pending checkout can omit the two optional discount fields.
+    # Normalize before hashing so API serializer defaults do not change its key.
+    data = {"discount_type": "none", "discount_value": 0, **data}
     fingerprint, prior = lock_operation(scope, "checkout", key, data)
     if prior is not None:
+        prior_sale = Sale.objects.filter(
+            id=prior.get("id"), tenant=scope.tenant, branch=scope.branch
+        ).only("cashier_id").first()
+        if prior_sale is None or (
+            prior_sale.cashier_id != scope.user.id and not scope.has_role("owner", "manager")
+        ):
+            raise PermissionDenied("This checkout belongs to another cashier.")
         return prior
     customer = None
     customer_snapshot = {
