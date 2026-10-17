@@ -1,4 +1,5 @@
 """VAT and customer discount regression tests."""
+
 from copy import deepcopy
 from uuid import uuid4
 

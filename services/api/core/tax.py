@@ -1,4 +1,5 @@
 """Tenant-scoped VAT rules and monetary calculations. All money is in paisa."""
+
 from decimal import ROUND_HALF_UP, Decimal
 
 from rest_framework import serializers
@@ -8,11 +9,13 @@ from core.serializers import StrictSerializer
 
 MAX_RATE = 10000  # basis points: 10000 = 100%; never infer Bangladesh statutory rates
 
+
 class ProductRule(StrictSerializer):
     product_id = serializers.UUIDField()
     treatment = serializers.ChoiceField(choices=["default", "exempt", "taxable"])
     rate_bps = serializers.IntegerField(min_value=0, max_value=MAX_RATE, required=False)
     mode = serializers.ChoiceField(choices=["inclusive", "exclusive"], required=False)
+
 
 class TaxConfigInput(StrictSerializer):
     enabled = serializers.BooleanField()
@@ -42,8 +45,11 @@ DEFAULT = {
     "default_product_discount_bps": 0,
     "version": 0,
 }
+
+
 def config_for(tenant):
     return {**DEFAULT, **(tenant.tax_config or {})}
+
 
 def enforce_discount_policy(scope, configuration, discount_type, discount_value):
     """Cashiers may use the owner-configured discount, not create their own.
@@ -63,6 +69,7 @@ def enforce_discount_policy(scope, configuration, discount_type, discount_value)
 
 def round_minor(value):
     return int(Decimal(value).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
 
 def calculate(lines, configuration, discount_type="none", discount_value=0):
     """Compute each line's VAT after a proportionally allocated sale discount.

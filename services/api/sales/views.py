@@ -30,6 +30,7 @@ class QuoteInput(StrictSerializer):
             raise ValidationError("Combine duplicate medicines first.")
         return lines
 
+
 class QuoteView(APIView):
     def post(self, request):
         scope = scope_for(request, "sell")
@@ -66,6 +67,7 @@ class QuoteView(APIView):
         except ValueError as exc:
             raise ValidationError(str(exc)) from None
         return Response(result)
+
 
 class CheckoutView(APIView):
     @extend_schema(
